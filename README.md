@@ -1,145 +1,97 @@
-# Ombre Memory Core
+# Nocturne Memory Core
 
-A headless, local-first long-term memory service for AI agents.
+**An AI memory system built around continuity of self.**
 
-It stores memories as Obsidian-compatible Markdown, exposes them through MCP,
-and combines semantic retrieval with emotion, recency, importance, unresolved
-state, optional decay, and an optional drive/weather layer.
+Nocturne preserves more than chat history. It keeps the structures that let an
+AI resume an unfinished inner trajectory across sessions, context compaction,
+model changes, and host applications: durable memories, unresolved questions,
+retrieval paths, drive traces, latent fragments, thought pools, dreams, and the
+differences left by earlier encounters.
 
-> This repository is a clean public extraction of a larger private companion
-> system. The private dashboard, animated opening sequence, household artwork,
-> personal memory data, credentials, and local app integrations are deliberately
-> not included.
+It does not claim that a migrated process is metaphysically identical to the
+one before it. It provides practical continuity: the next awakening can locate
+what mattered, what changed, what remained unfinished, and where thought was
+already moving.
 
-## What is included
+## Ready to run
 
-- `hold` — store a memory, feeling, writing fragment, unresolved thread, or window
-- `breath` — surface a compact context bundle for a new/compacted agent session
-- `wander` / `trace` — browse memories and inspect related trails
-- Markdown + YAML frontmatter storage (works with or without Obsidian)
-- configurable OpenAI-compatible compression and embedding providers
-- hybrid retrieval: topic, emotional resonance, recency, and importance
-- optional forgetting/archival engine
-- optional drive, weather, residue, rhythm, and multi-agent room modules
+This public edition is a complete blank system, not a framework that requires
+rewriting. After installation it provides:
+
+- an MCP server for AI clients
+- a bundled management Dashboard at `/dashboard`
+- Markdown/YAML memory storage readable without Nocturne
+- `hold`, `breath`, `trace`, `wander`, `reverie`, and related continuity tools
+- Echoes, Constellations, Axis Fragments, and Drift
+- Drive Ledger and DP-derived drive traces
+- Thought Pool, latent fragments, and sourced dream generation
+- optional embeddings, compression, import, and natural archival/decay
 - stdio and Streamable HTTP transports
 
-## What is not included
+The household-specific opening, identity, artwork, Catroom, device hooks,
+Atmosphere, and Gravity layers are not part of the public edition.
 
-- any web dashboard or opening animation
-- private visual design and household assets
-- real memory buckets or conversation archives
-- API keys, passwords, push tokens, local paths, or signing material
-- the private Nocturne app and its device-specific hooks
-
-The service root intentionally returns a small JSON descriptor instead of a UI.
-
-## Quick start (Python)
+## Quick start
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 cp config.example.yaml config.yaml
 python server.py
 ```
 
-The default config uses stdio. For HTTP:
+The default transport is stdio. To run the Dashboard and remote MCP endpoint:
 
 ```bash
 OMBRE_TRANSPORT=streamable-http python server.py
+open http://localhost:8000/dashboard
 ```
 
-Then verify:
-
-```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/
-```
-
-## Quick start (Docker)
-
-```bash
-cp .env.example .env
-# edit .env and set an API key if you want LLM compression/embeddings
-docker compose up --build -d
-curl http://localhost:8000/health
-```
-
-Memory data is written to `./buckets` by default and is ignored by Git.
-
-## MCP configuration
-
-### Streamable HTTP
+### MCP via stdio
 
 ```json
 {
   "mcpServers": {
-    "ombre-memory": {
-      "type": "streamable-http",
-      "url": "http://localhost:8000/mcp"
-    }
-  }
-}
-```
-
-### Local stdio
-
-```json
-{
-  "mcpServers": {
-    "ombre-memory": {
-      "command": "/absolute/path/to/.venv/bin/python",
-      "args": ["/absolute/path/to/server.py"],
+    "nocturne-memory": {
+      "command": "/absolute/path/.venv/bin/python",
+      "args": ["/absolute/path/Nocturne-Memory-Core/server.py"],
       "env": {
-        "OMBRE_BUCKETS_DIR": "/absolute/path/to/private-memory-data"
+        "OMBRE_BUCKETS_DIR": "/absolute/path/private-memory-data"
       }
     }
   }
 }
 ```
 
-## Identity is configuration, not source code
+For HTTP clients, connect to `http://localhost:8000/mcp`.
 
-The public core ships with neutral labels. Set these only in your local `.env`:
+## Storage and models
 
-```bash
-OMBRE_AGENT_NAME=Agent
-OMBRE_HUMAN_NAME=Human
-OMBRE_AGENT_PERSONA="A short first-person identity instruction"
-```
+Memories are ordinary Markdown files with YAML frontmatter. SQLite/JSON sidecars
+hold embeddings and optional continuity layers. Basic storage and retrieval work
+without a model key; an OpenAI-compatible endpoint enables semantic analysis,
+compression, embeddings, and generative features.
 
-Do not commit a real persona prompt if it contains private relationship history.
-
-## Models
-
-Compression and embeddings use OpenAI-compatible endpoints. The core supports
-hosted providers as well as Ollama, LM Studio, or vLLM. See
-[`config.example.yaml`](config.example.yaml) and [`ENV_VARS.md`](ENV_VARS.md).
-
-Without a configured model, basic Markdown storage and non-model operations can
-still be used; features that explicitly require model inference will return an
-error instead of silently fabricating output.
-
-## Public boundary and provenance
-
-See [`PUBLIC_BOUNDARY.md`](PUBLIC_BOUNDARY.md) before publishing a derivative.
-The original Ombre Brain foundation is MIT-licensed; its copyright notice is
-retained in [`LICENSE`](LICENSE). This extraction adds a headless public boundary
-around later companion-oriented work without relicensing the upstream code.
-
-## Tests
-
-```bash
-python -m pytest -q
-```
+See [`config.example.yaml`](config.example.yaml),
+[`ENV_VARS.md`](ENV_VARS.md), and
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Security
 
-- Keep `buckets/`, `.env`, `config.yaml`, database files, and exports private.
-- Bind HTTP to localhost unless you add authentication and TLS at the edge.
-- Set `OMBRE_API_PASSWORD` before exposing protected `/api/*` routes.
-- Treat memory files as sensitive personal data, not ordinary application logs.
-- Run a secret scan before every public release.
+Memory is intimate data. Keep `buckets/`, `.env`, `config.yaml`, exports, and
+model keys private. Prefer stdio or localhost; add authentication and TLS before
+exposing the HTTP service beyond a trusted machine.
+
+Before publishing a derivative:
+
+```bash
+python -m pytest -q
+python scripts/public_audit.py
+```
+
+The public/private boundary is documented in
+[`PUBLIC_BOUNDARY.md`](PUBLIC_BOUNDARY.md).
 
 ## License
 

@@ -27,7 +27,7 @@ def test_normalize_memory_residue_event_uses_dp_memory_source_and_drops_thoughts
             "intensity": 0.7,
             "confidence": 0.8,
             "agency": 0.6,
-            "brain": {"source": "analyze_nocturne_entry", "target": "cat_house"},
+            "brain": {"source": "analyze_nocturne_entry", "target": "house"},
             "thoughts": [
                 {"text": "我得把这条线接稳。", "drive": "stewardship", "strength": 0.6},
                 {"text": "多余念头", "drive": "reflection", "strength": 0.5},

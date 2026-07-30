@@ -117,7 +117,7 @@ def _synthesize_mood(thoughts: list) -> tuple[str, str] | None:
         start = raw.index("{")
         end = raw.rindex("}") + 1
         result = json.loads(raw[start:end])
-        live_wire = (result.get("live_wire") or result.get("nox_now") or "").strip()
+        live_wire = (result.get("live_wire") or "").strip()
         mood_trace = str(result.get("mood_trace") or "").strip()
         if mood_trace:
             return (mood_trace, live_wire)

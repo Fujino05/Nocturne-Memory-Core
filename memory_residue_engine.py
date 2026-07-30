@@ -115,7 +115,7 @@ def normalize_memory_residue_event(event: dict | None, entry: dict | None = None
         if drive != primary:
             secondary[drive] = max(secondary.get(drive, 0.0), round(value, 4))
     evidence = [str(item).strip()[:180] for item in event.get("evidence", []) if str(item).strip()][:3]
-    # 与 dialogue_residue 对齐：记忆分析不代写 Nox 第一人称念头。
+    # 与 dialogue_residue 对齐：记忆分析不代写 the agent 第一人称念头。
     _ = thought_limit(entry)
 
     return {

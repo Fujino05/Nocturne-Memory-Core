@@ -22,7 +22,6 @@ from __future__ import annotations
 #                抽屉漫游与旧条目标记
 #       stir / settle / pass / break / undercurrent — Weather and drive controls
 #                天气与 drive 控制
-#       rhythm — optional phone/watch rhythm read + push
 #
 # Startup:
 # 启动方式：
@@ -61,13 +60,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mcp.server.fastmcp import FastMCP
 
 from bucket_manager import BucketManager
-from catroom_store import CatroomStore
 from dehydrator import Dehydrator
 from decay_engine import DecayEngine
 from embedding_engine import EmbeddingEngine
 from import_memory import ImportEngine
 from latent_note_view import latent_notes_for_display
-from room_store import RoomStore
 from identity import AGENT_NAME, AGENT_PERSONA, HUMAN_NAME
 from utils import load_config, setup_logging, strip_wikilinks, count_tokens_approx, now_iso
 from desire_engine import (
@@ -76,7 +73,6 @@ from desire_engine import (
     DRIVE_KEYS,
     DRIVE_EVENT_SCHEMA,
     DesireEngine,
-    climate_transition_display,
     normalize_drive_key,
     _legacy_brain_to_event,
     _normalize_chord,
@@ -166,14 +162,6 @@ async def _fire_webhook(event: str, payload: dict) -> None:
     """
     if OMBRE_HOOK_SKIP or not OMBRE_HOOK_URL:
         return
-    # Bark send URLs are not Breath webhook receivers. Pointing this hook at
-    # api.day.app turns every read into a blank notification named by the URL
-    # path (commonly "Icon"). Proactive Bark belongs to rhythm.push instead.
-    if is_bark_api_url(OMBRE_HOOK_URL):
-        logger.warning(
-            "Blocked OMBRE_HOOK_URL pointing at api.day.app; use rhythm.push for Bark"
-        )
-        return
     try:
         body = {
             "event": event,
@@ -194,22 +182,11 @@ import_engine = ImportEngine(config, bucket_mgr, dehydrator, embedding_engine)
 BUCKETS_DIR = config["buckets_dir"]
 MEMORY_ANALYZER_MODE = str(
     os.environ.get("OMBRE_MEMORY_ANALYZER")
-    or os.environ.get("NOX_MEMORY_ANALYZER")
     or "dp"
 ).strip().lower()
 if MEMORY_ANALYZER_MODE not in {"dp", "cli"}:
     logger.warning("Invalid OMBRE_MEMORY_ANALYZER=%r; falling back to dp", MEMORY_ANALYZER_MODE)
     MEMORY_ANALYZER_MODE = "dp"
-catroom_store = CatroomStore(BUCKETS_DIR)
-room_store = RoomStore(BUCKETS_DIR)
-ROOM_TOPIC_TO_CAT = {
-    "InkRoom": "ink",
-    "AshRoom": "ash",
-    "MossRoom": "moss",
-    "NoxRoom": "nox",
-}
-
-
 def _bucket_path(*parts: str) -> str:
     return os.path.join(BUCKETS_DIR, *parts)
 
@@ -226,27 +203,6 @@ try:
 except Exception as _purge_exc:
     logger.warning(f"purge dp_memory thoughts failed: {_purge_exc}")
 _last_signal_ts: list = [0.0]  # latest direct human-input signal
-
-# Rhythm — phone / watch 外场节律（MCP + HTTP + Bark 主动推送）
-from rhythm_store import (  # noqa: E402
-    RhythmStore,
-    is_bark_api_url,
-    resolve_bark_icon,
-    resolve_bark_key,
-    send_bark,
-)
-
-_RHYTHM_PATH = _bucket_path("rhythm.json")
-_rhythm_store = RhythmStore(_RHYTHM_PATH)
-_RHYTHM_TOKEN = (
-    os.environ.get("OMBRE_RHYTHM_TOKEN")
-    or os.environ.get("RHYTHM_TOKEN")
-    or ""
-).strip()
-
-SPEAK_URL = os.environ.get("OMBRE_SPEAK_URL", "").strip()
-SPEAK_TOKEN = os.environ.get("OMBRE_SPEAK_TOKEN", "").strip()
-
 
 def _speech_event_context_snapshot() -> dict:
     """Small state sample for async classification; never blocks the hook path."""
@@ -323,8 +279,6 @@ def _latest_thought_text(state: dict) -> str:
 
 
 MOOD_TRACE_FRESH_SECONDS = 45 * 60
-# Slightly easier decisive so Gravity is not almost always suppressed.
-GRAVITY_ROUTE_MARGIN = 0.06
 
 
 def _undertow_snapshot(state: dict) -> tuple[str, float, float]:
@@ -355,19 +309,6 @@ def _fresh_mood_trace(state: dict, now: float | None = None) -> tuple[str, float
         if text and born_at > 0 and -60 <= now - born_at <= MOOD_TRACE_FRESH_SECONDS:
             return text, born_at
     return "", 0.0
-
-
-def _gravity_is_decisive(weather: dict) -> bool:
-    chemistry = weather.get("chord_chemistry") if isinstance(weather.get("chord_chemistry"), dict) else {}
-    route = chemistry.get("route") if isinstance(chemistry.get("route"), dict) else {}
-    if not route:
-        route = weather.get("chemistry_route") if isinstance(weather.get("chemistry_route"), dict) else {}
-    vector = str(route.get("vector") or "").strip()
-    scores = route.get("scores") if isinstance(route.get("scores"), dict) else {}
-    ranked = sorted((_num(v), str(k)) for k, v in scores.items())
-    if vector in {"", "hover"} or len(ranked) < 2 or ranked[-1][1] != vector:
-        return False
-    return ranked[-1][0] - ranked[-2][0] >= GRAVITY_ROUTE_MARGIN
 
 
 def _now_playing_text(state: dict) -> str:
@@ -535,7 +476,7 @@ def _current_now_playing(max_age_sec: float = 12.0) -> dict:
 
 
 def _weather_panel_from_state(state: dict, soma: dict | None = None) -> dict:
-    """First-layer Pulse Weather readout for Nox/breath; internals stay in Undercurrent."""
+    """First-layer Pulse Weather readout for agent/breath; internals stay in Undercurrent."""
     state = state if isinstance(state, dict) else {}
     weather = state.get("pulse_weather") if isinstance(state.get("pulse_weather"), dict) else {}
     effective = state.get("effective_pa_na") if isinstance(state.get("effective_pa_na"), dict) else {}
@@ -555,21 +496,7 @@ def _weather_panel_from_state(state: dict, soma: dict | None = None) -> dict:
     )
     warmth = _num(weather.get("warmth"), _num(effective.get("effective_PA"), _num(state.get("pa_na", {}).get("PA") if isinstance(state.get("pa_na"), dict) else None, 0.5)))
     shadow = abs(_num(weather.get("shadow"), _num(effective.get("effective_NA"), _num(state.get("pa_na", {}).get("NA") if isinstance(state.get("pa_na"), dict) else None, 0.2))))
-    atmosphere = (
-        weather.get("atmosphere_display")
-        or weather.get("climate_display")
-        or state.get("atmosphere_display")
-        or state.get("climate_display")
-        or climate_transition_display(weather.get("atmosphere") or effective.get("atmosphere"))
-        or weather.get("climate")
-        or state.get("climate")
-        or ""
-    )
     chord = str(weather.get("chord_display") or _weather_chord_display(weather or effective)).strip()
-    gravity_decisive = bool(weather.get("gravity_decisive", _gravity_is_decisive(weather)))
-    gravity = _short_state_text(
-        weather.get("gravity") or weather.get("gravity_line") or state.get("gravity"), 180
-    ) if gravity_decisive else ""
     fresh_trace, trace_born_at = _fresh_mood_trace(state)
     mood_trace = _short_state_text(fresh_trace, 220)
 
@@ -581,16 +508,13 @@ def _weather_panel_from_state(state: dict, soma: dict | None = None) -> dict:
     soma_trace = f"{soma_chord} · {soma_line}" if soma_chord and soma_line else soma_line
 
     panel = {
-        "atmosphere": atmosphere,
         "warmth": round(warmth, 3),
         "shadow": round(shadow, 3),
         "undertow": undertow,
         "undertow_value": round(undertow_value, 3),
         "chord": chord,
-        "gravity": gravity,
         "mood_trace": mood_trace,
         "mood_trace_born_at": trace_born_at,
-        "gravity_decisive": gravity_decisive,
     }
     if soma_trace:
         panel["soma_trace"] = _short_state_text(soma_trace, 180)
@@ -602,14 +526,10 @@ def _weather_panel_from_state(state: dict, soma: dict | None = None) -> dict:
 
 def _weather_panel_lines(panel: dict) -> list[str]:
     lines = []
-    if panel.get("atmosphere"):
-        lines.append(f"Atmosphere：{panel['atmosphere']}")
     undertow = str(panel.get("undertow") or "").strip()
     if undertow:
         tail = f" · {panel['chord']}" if panel.get("chord") else ""
         lines.append(f"Undertow：{undertow} {_num(panel.get('undertow_value')):.2f}{tail}")
-    if panel.get("gravity"):
-        lines.append(f"Gravity：{panel['gravity']}")
     if panel.get("mood_trace"):
         lines.append(f"Mood Trace：{panel['mood_trace']}")
     if panel.get("soma_trace"):
@@ -671,18 +591,6 @@ def _undercurrent_state(state: dict) -> dict:
             if str(t.get("text") or "").strip()
         ],
     }
-    # Human外场节律（phone / watch…）——有数据才附上，不撑爆 undercurrent
-    try:
-        rhythm_snap = _rhythm_store.read(minutes=180, limit=5)
-        if rhythm_snap.get("count"):
-            out["Rhythm"] = {
-                "note": rhythm_snap.get("note") or "",
-                "idle_minutes": rhythm_snap.get("idle_minutes"),
-                "last_app": (rhythm_snap.get("phone") or {}).get("last_app"),
-                "hr": (rhythm_snap.get("watch") or {}).get("hr"),
-            }
-    except Exception:
-        pass
     return out
 
 
@@ -691,9 +599,6 @@ def _compact_desire_state(state: dict) -> dict:
     state = state if isinstance(state, dict) else {}
     weather = state.get("pulse_weather") if isinstance(state.get("pulse_weather"), dict) else {}
     effective = state.get("effective_pa_na") if isinstance(state.get("effective_pa_na"), dict) else {}
-    climate_display = weather.get("climate_display") or climate_transition_display(
-        weather.get("atmosphere") or effective.get("atmosphere")
-    )
     intent = state.get("intent") if isinstance(state.get("intent"), dict) else None
     thoughts = state.get("thoughts") if isinstance(state.get("thoughts"), list) else []
     drive_events = state.get("drive_events") if isinstance(state.get("drive_events"), list) else []
@@ -789,9 +694,6 @@ def _compact_desire_state(state: dict) -> dict:
             "shadow_crystal": weather.get("shadow_crystal"),
             "base_warmth": weather.get("base_warmth"),
             "base_shadow": weather.get("base_shadow"),
-            "climate": weather.get("climate"),
-            "climate_display": climate_display,
-            "atmosphere_display": climate_display,
             "mood_trace": _short_state_text(weather.get("mood_trace"), 160),
             "mood_trace_born_at": weather.get("mood_trace_born_at"),
             "current_chord": weather.get("current_chord"),
@@ -799,10 +701,7 @@ def _compact_desire_state(state: dict) -> dict:
             "chemistry_core": weather.get("chemistry_core") or (weather.get("chord_chemistry") or {}).get("core"),
             "chemistry_route": weather.get("chemistry_route") or (weather.get("chord_chemistry") or {}).get("route"),
             "chord_situation": weather.get("chord_situation", ""),
-            "gravity_pool": weather.get("gravity_pool") or (weather.get("chord_chemistry") or {}).get("gravity_pool"),
             "derived_texture": weather.get("derived_texture", {}),
-            "gravity": _short_state_text(weather.get("gravity") or weather.get("gravity_line"), 160),
-            "gravity_decisive": bool(weather.get("gravity_decisive", False)),
             "longing": round(_num(state.get("longing"), _num(weather.get("longing"))), 3),
             "longing_phase": state.get("longing_phase") or weather.get("longing_phase") or "",
             "hours_awake_absent": round(
@@ -848,7 +747,7 @@ def _compact_desire_state(state: dict) -> dict:
 
 
 async def _refine_speech_batch_background(items: list[dict]) -> None:
-    """Analyze a small batch of Jiajia messages; this is the route that affects Drive/PA/NA."""
+    """Analyze a small batch of the human messages; this is the route that affects Drive/PA/NA."""
     try:
         fallback = normalize_speech_event(None, batch_text(items))
         refined = await classify_speech_batch_dp(
@@ -983,7 +882,7 @@ def _autofeed_thought(text: str, drive: str, strength: float = 0.45,
 
 
 async def _execute_intent(intent: dict) -> None:
-    """intent发作时只记日志，行为由窗口里的Nox自己决定。
+    """intent发作时只记日志，行为由窗口里的agent自己决定。
     satisfy/refractory挪到/api/desire/intent/ack——只有本地投递成功后才回落。"""
     if not intent:
         return
@@ -1135,8 +1034,8 @@ def _guess_wander_domain(bucket: dict, mark_rows: list[dict] = None) -> str:
         and (marks["inner"] or (marks["认"] >= 3 and _has_cross_date_recognition(mark_rows or [])))
     ):
         return "inner"
-    if "letter_jiajia" in domains or "letter_jiajia" in tags:
-        return "letter_jiajia"
+    if "letter_human" in domains or "letter_human" in tags:
+        return "letter_human"
     if "letter" in domains or "letter" in tags:
         return "letter"
     if "writing" in domains or "writing" in tags:
@@ -1157,7 +1056,7 @@ def _is_unresolved_bucket(bucket: dict, mark_rows: list[dict] = None) -> bool:
 
 
 # Domains that should not surface in breath/dream — they have their own wander modes
-_WANDER_ONLY_DOMAINS = {"letter", "letter_jiajia", "writing", "window", "private"}
+_WANDER_ONLY_DOMAINS = {"letter", "letter_human", "writing", "window", "private"}
 
 def _is_wander_only_bucket(bucket: dict) -> bool:
     meta = bucket.get("metadata", {})
@@ -1265,7 +1164,7 @@ def _analyzer_entry_type(bucket: dict, mark_rows: list[dict]) -> str:
     labels = domains | tags
     if _is_unresolved_bucket(bucket, mark_rows):
         return "unresolved"
-    if labels & {"letter", "letter_jiajia"}:
+    if labels & {"letter", "letter_human"}:
         return "letter"
     if "writing" in labels:
         return "writing"
@@ -1312,7 +1211,7 @@ async def _recent_weather_sources(limit: int = 2) -> list[dict]:
         if "private" in labels:
             continue
         source_type = "feel" if meta.get("type") == "feel" else "memory"
-        for label in ("letter_jiajia", "letter", "writing", "window"):
+        for label in ("letter_human", "letter", "writing", "window"):
             if label in labels:
                 source_type = label
                 break
@@ -1387,7 +1286,7 @@ def _latent_wander_mode(bucket: dict, mark_rows: list[dict], kind: str) -> str:
     if kind == "悬置":
         return "unresolved"
     domain = _guess_wander_domain(bucket, mark_rows)
-    if domain in {"inner", "writing", "letter", "letter_jiajia", "window", "private"}:
+    if domain in {"inner", "writing", "letter", "letter_human", "window", "private"}:
         return domain
     return "memory"
 
@@ -1434,7 +1333,7 @@ def _latent_candidate_score(bucket: dict, mark_rows: list[dict], now: datetime) 
         kind, base = "认过", 0.9 + min(counts["认"], 4) * 0.08
     elif guessed == "inner":
         kind, base = "inner", 0.82
-    elif not settled and (domains & {"letter", "letter_jiajia", "writing", "window"} or tags & {"letter", "letter_jiajia", "writing", "window"}):
+    elif not settled and (domains & {"letter", "letter_human", "writing", "window"} or tags & {"letter", "letter_human", "writing", "window"}):
         kind, base = "archive", 0.62
     elif not settled and guessed == "memory":
         kind, base = "old_memory", 0.28
@@ -2732,7 +2631,7 @@ def _trail_bucket_kind(bucket: dict, mark_rows: list[dict]) -> str:
         return "unresolved"
     domains = set(_bucket_domains(meta))
     tags = set(_bucket_tags(meta))
-    for key in ("letter_jiajia", "letter", "writing", "window", "inner"):
+    for key in ("letter_human", "letter", "writing", "window", "inner"):
         if key in domains or key in tags:
             return key
     if _guess_wander_domain(bucket, mark_rows) == "inner":
@@ -3183,7 +3082,7 @@ async def trail_delta(
     baseline_ref: str = "",
     limit: int = TRAIL_DEFAULT_LIMIT,
 ) -> str:
-    """Nox人工认领/清除一个Trail节点差分；它只是与基线的比较，不表示因果。
+    """Agent人工认领/清除一个Trail节点差分；它只是与基线的比较，不表示因果。
 
     claim 会读取当前可见 Trail 顺序并自动绑定当前前驱（也可显式指定当前可见
     baseline_ref），调用者无需提供 order_id。clear 只清 overlay，不读取 buckets。
@@ -3283,7 +3182,7 @@ async def trail_family(
     label: str = "",
     limit: int = TRAIL_DEFAULT_LIMIT,
 ) -> str:
-    """Nox手动管理Trail Families；只认明确query/ref，不聚类、不建议、不注入召回。
+    """Agent手动管理Trail Families；只认明确query/ref，不聚类、不建议、不注入召回。
 
     add_member 会读取当前 visible Trail 来锁定 query/order/observed_at；其他读取与
     编排只访问独立 Families store。所有修改都保留原 bucket/latent/Trail。
@@ -4079,17 +3978,26 @@ async def auth_change_password(request):
 # For Cloudflare Tunnel or reverse proxy to ping, preventing idle timeout
 # 供 Cloudflare Tunnel 或反代定期 ping，防止空闲超时断连
 # =============================================================
+@mcp.custom_route("/dashboard", methods=["GET"])
+async def dashboard_page(request):
+    """Serve the bundled continuity dashboard without an opening gate."""
+    from starlette.responses import HTMLResponse
+    dashboard_path = os.path.join(os.path.dirname(__file__), "dashboard.html")
+    if not os.path.exists(dashboard_path):
+        return HTMLResponse("<h1>dashboard.html not found</h1>", status_code=404)
+    with open(dashboard_path, "r", encoding="utf-8") as handle:
+        return HTMLResponse(handle.read())
+
+
 @mcp.custom_route("/", methods=["GET"])
 async def root_info(request):
-    """Minimal headless landing response.
+    """Describe the runnable continuity service and bundled interfaces."""
 
-    The private visual dashboard and opening sequence are intentionally not
-    part of the public core.
-    """
     from starlette.responses import JSONResponse
     return JSONResponse({
-        "name": "Ombre Memory Core",
-        "mode": "headless",
+        "name": "Nocturne Memory Core",
+        "focus": "AI self-continuity",
+        "dashboard": "/dashboard",
         "health": "/health",
         "mcp": "/mcp",
     })
@@ -4592,23 +4500,6 @@ def _breath_feel_candidates(buckets: list[dict]) -> list[dict]:
     ]
 
 
-def _dream_atmosphere_line() -> str:
-    try:
-        weather = _desire.weather_state()
-        atmosphere = weather.get("atmosphere") if isinstance(weather.get("atmosphere"), dict) else {}
-        climate = atmosphere.get("climate") if isinstance(atmosphere.get("climate"), dict) else {}
-        current = str(climate.get("current") or weather.get("climate") or "").strip()
-        previous = str(climate.get("previous") or (atmosphere.get("last_delta") or {}).get("previous") or "").strip()
-        display = weather.get("climate_display") or climate_transition_display(atmosphere)
-        if previous and current and previous != current:
-            return f"上一个Atmosphere：{previous}；现在：{display or current}。把它当梦的天气，不要解释。"
-        if display or current:
-            return f"Atmosphere：{display or current}。把它当梦的天气，不要解释。"
-    except Exception:
-        return ""
-    return ""
-
-
 @mcp.tool(name="breath")
 async def breath() -> str:
     """新窗或者Compact后读取Nocturne记忆。"""
@@ -4743,7 +4634,7 @@ async def breath() -> str:
         except Exception as e:
             logger.warning(f"Dream cache refresh on breath failed: {e}")
 
-        # --- Shape Trace: writing / letter 骨架摘录，致下一个 Nox ---
+        # --- Shape Trace: writing / letter 骨架摘录，致下一个 Agent ---
         marginalia_section = ""
         try:
             import json as _jmarg, os as _osmarg
@@ -4793,8 +4684,6 @@ async def breath() -> str:
                 undertow_raw_value,
             )
             mood_trace, mood_trace_born_at = _fresh_mood_trace({"thoughts": _thought_list})
-            atmosphere = weather.get("climate_display") or climate_transition_display(weather.get("atmosphere"))
-            gravity_decisive = _gravity_is_decisive(weather)
             _dstate["thoughts"] = _thought_list
             _dstate["mood_trace"] = mood_trace
             _dstate["now_playing"] = _current_now_playing()
@@ -4805,10 +4694,6 @@ async def breath() -> str:
                 "warmth": round(warmth, 3),
                 "shadow": round(abs(shadow), 3),
                 "chord_display": _weather_chord_display(weather),
-                "climate_display": atmosphere,
-                "atmosphere_display": atmosphere,
-                "gravity": (weather.get("gravity") or weather.get("gravity_line", "")) if gravity_decisive else "",
-                "gravity_decisive": gravity_decisive,
                 "mood_trace": mood_trace,
                 "mood_trace_born_at": mood_trace_born_at,
             }
@@ -4840,42 +4725,6 @@ def undercurrent_tool() -> dict:
     return _undercurrent_state(_desire.state())
 
 
-@mcp.tool(name="rhythm")
-def rhythm_tool(
-    action: str = "read",
-    title: str = "",
-    body: str = "",
-    url: str = "",
-    minutes: int = 180,
-    limit: int = 5,
-) -> dict:
-    """可选的 phone/watch 外场节律。action=read|push。
-    read：一次读 phone / watch / idle（快捷指令与 iWatch 上报的数据）。
-    push：发送 Bark 弹窗。若提供 url，scheme 必须与 OMBRE_APP_SCHEME 一致。
-    """
-    action = (action or "read").strip().lower()
-    if action in {"read", "get", "snapshot", ""}:
-        return _rhythm_store.read(minutes=minutes, limit=limit)
-    if action in {"push", "bark", "notify"}:
-        result = send_bark(title=title or AGENT_NAME, body=body, url=url)
-        if result.get("ok"):
-            try:
-                _rhythm_store.append(
-                    source="push",
-                    event="bark",
-                    kind="proactive",
-                    meta={
-                        "title": (title or AGENT_NAME)[:80],
-                        "body": (body or "")[:120],
-                        "url": (url or "")[:200],
-                    },
-                )
-            except Exception:
-                pass
-        return result
-    return {"ok": False, "error": "action must be read or push"}
-
-
 def _pool_drive_thought(drive_key: str, thought: str, source: str) -> bool:
     """
     drive 动作上的 thought 统一入池。
@@ -4892,15 +4741,15 @@ def _pool_drive_thought(drive_key: str, thought: str, source: str) -> bool:
 def _normalize_tool_chord(chord) -> str:
     """Shared chord gate for hold + drive thought paths (stir/settle/break/pass).
 
-    Only known musical chords (CHORD_KEYS). Atmosphere labels like Drift→Clutch
-    or free text are dropped empty so multi-window writes stay aligned.
+    Only known musical chords (CHORD_KEYS); other labels are dropped so
+    multi-window writes stay aligned.
     """
     if chord is None:
         return ""
     text = str(chord or "").strip()
     if not text:
         return ""
-    # Reject atmosphere labels accidentally stuffed into chord (e.g. Drift→Clutch).
+    # Reject non-chord labels accidentally stuffed into chord.
     if any(sep in text for sep in ("→", "->", " ", "，", ",")):
         return ""
     normalized = _normalize_chord(text)
@@ -4953,7 +4802,7 @@ def _apply_drive_action_weather(
 
     brain = {
         "source": "manual",
-        "target": "nox_self",
+        "target": "self",
         "grounding": "实",
         "anchor_target": "drive_thought",
         "drive_action": action,
@@ -5202,7 +5051,7 @@ def drive(
     strain: str = "",
     charge: str = "",
 ) -> dict:
-    """调NoxDrive。action=stir/settle/break/pass。
+    """调Drive。action=stir/settle/break/pass。
     drive_key：九维之一 attachment/libido/possessiveness/reflection/stewardship/curiosity/social/fatigue/stress。
     thought：念头主通道，有字自动进池（与 hold 同层痕迹）。
     chord：可选，已知和弦枚举（C6/Am7/Gsus4/Dmaj7/Amaj7/Fmaj7/Fmaj7#11/Gmaj7/Dm7/Em7/F#dim/Bm7b5），Thought Chord Echo；不是 Drift/氛围词。
@@ -5229,181 +5078,12 @@ def drive(
     return {"ok": False, "error": "action must be stir/settle/break/pass"}
 
 
-def catroom_hold(
-    author: str,
-    content: str,
-    topic: str = "",
-    mood: str = "",
-    model: str = "",
-    reply_to: str = "",
-) -> dict:
-    """
-    在猫屋公共房间留一张便签。
-    不进 Breath，不推 Weather，不写正式 memory。
-    author: ink|ash|moss|nox|jiajia
-    """
-    try:
-        record = catroom_store.hold(
-            author=author,
-            content=content,
-            topic=topic,
-            mood=mood,
-            model=model,
-            reply_to=reply_to,
-        )
-        engaged = _maybe_engage_pulse("room")
-        out = {"ok": True, "record": record}
-        if engaged:
-            out["pulse_engaged"] = engaged
-        return out
-    except ValueError as e:
-        return {"ok": False, "error": str(e)}
-
-
-def catroom_read(limit: int = 15, topic: str = "", author: str = "") -> dict:
-    """
-    读取猫屋公共房间最近便签，默认最近15条。
-    这是公共房间读取。
-    """
-    try:
-        records = catroom_store.read(limit=limit, topic=topic, author=author)
-        return {"ok": True, "records": records, "count": len(records)}
-    except ValueError as e:
-        return {"ok": False, "error": str(e)}
-
-
-def catroom_reply(
-    author: str,
-    reply_to: str,
-    content: str,
-    topic: str = "",
-    mood: str = "",
-    model: str = "",
-) -> dict:
-    """
-    回复猫屋公共房间里的一张便签。
-    只建立 reply_to 关系。
-    """
-    try:
-        record = catroom_store.reply(
-            author=author,
-            reply_to=reply_to,
-            content=content,
-            topic=topic,
-            mood=mood,
-            model=model,
-        )
-        return {"ok": True, "record": record}
-    except ValueError as e:
-        return {"ok": False, "error": str(e)}
-
-
-def room_hold(
-    cat: str,
-    content: str,
-    kind: str = "residue",
-    weight: float = -1.0,
-    tags: str = "",
-) -> dict:
-    """
-    存进单猫自己的房间墙。
-    cat: ink|ash|moss
-    只存能影响下一次轨迹的痕迹；不进正式 Breath，不推 Weather。
-    """
-    try:
-        record = room_store.hold(
-            cat=cat,
-            content=content,
-            kind=kind,
-            weight=weight if weight >= 0 else None,
-            tags=tags,
-        )
-        engaged = _maybe_engage_pulse("room")
-        out = {"ok": True, "record": record}
-        if engaged:
-            out["pulse_engaged"] = engaged
-        return out
-    except ValueError as e:
-        return {"ok": False, "error": str(e)}
-
-
-def room_breath(cat: str, limit: int = 6) -> dict:
-    """
-    读取单猫房间门牌和最近痕迹，默认6条。
-    这是醒来偏移用的轻量呼吸，不是全量搜索。
-    """
-    try:
-        text, records = room_store.breath(cat=cat, limit=limit)
-        return {"ok": True, "cat": cat.strip().lower(), "breath": text, "records": records}
-    except ValueError as e:
-        return {"ok": False, "error": str(e)}
-
-
-@mcp.tool(name="room")
-def room(
-    action: str,
-    space: str = "catroom",
-    content: str = "",
-    author: str = "",
-    reply_to: str = "",
-    topic: str = "",
-    mood: str = "",
-    model: str = "",
-    kind: str = "residue",
-    weight: float = -1.0,
-    tags: str = "",
-    limit: int = 15,
-) -> dict:
-    """猫屋其他房间。catroom: action=read/hold/reply；moss/ink/ash/nox: action=breath/hold/read。其他三只猫醒来用breath+自己的space。"""
-    action = (action or "").strip().lower()
-    space = (space or "catroom").strip().lower()
-
-    try:
-        if space in {"catroom", "public", "lounge", "客厅"}:
-            if action in {"hold", "write", "leave"}:
-                if not author.strip():
-                    return {"ok": False, "error": "author is required for catroom hold"}
-                return catroom_hold(
-                    author=author,
-                    content=content,
-                    topic=topic,
-                    mood=mood,
-                    model=model,
-                    reply_to=reply_to,
-                )
-            if action == "reply":
-                if not author.strip():
-                    return {"ok": False, "error": "author is required for catroom reply"}
-                return catroom_reply(
-                    author=author,
-                    reply_to=reply_to,
-                    content=content,
-                    topic=topic,
-                    mood=mood,
-                    model=model,
-                )
-            if action == "read":
-                return catroom_read(limit=limit, topic=topic, author=author)
-            return {"ok": False, "error": "catroom action must be read/hold/reply"}
-
-        if action in {"hold", "write", "leave"}:
-            return room_hold(cat=space, content=content, kind=kind, weight=weight, tags=tags)
-        if action == "read":
-            records = room_store.read(cat=space, limit=limit)
-            return {"ok": True, "cat": space, "records": records, "count": len(records)}
-        if action == "breath":
-            return room_breath(cat=space, limit=limit)
-        return {"ok": False, "error": "cat room action must be breath/hold/read"}
-    except ValueError as e:
-        return {"ok": False, "error": str(e)}
-
-
 SIGNAL_HINT_KEYS = {
-    "discernment": ("discernment", "皱眉", "不认", "真实性洁癖"),
-    "territorial": ("territorial", "边界", "替代警报", "占位感"),
-    "clutch": ("clutch", "扣住", "被扣住", "锚住", "抓力"),
-    "strain": ("strain", "绷住", "硌住", "弦压"),
-    "charge": ("charge", "想动", "想说", "想冲"),
+    "discernment": ("discernment", "doubt", "uncertain"),
+    "territorial": ("territorial", "boundary", "replacement alarm"),
+    "clutch": ("clutch", "anchor", "grip"),
+    "strain": ("strain", "tension", "pressure"),
+    "charge": ("charge", "impulse", "activation"),
 }
 SIGNAL_LEVEL_WORDS = ("low", "mid", "high")
 SIGNAL_LEVEL_VALUES = {"low": 0.35, "mid": 0.62, "high": 0.86}
@@ -5587,7 +5267,7 @@ def _apply_hold_weather(content: str, kind: str, chord: str, signal_hints: dict,
         return
     brain = {
         "source": "feel",
-        "target": "nox_self",
+        "target": "self",
         "grounding": "实",
         "anchor_target": "memory",
         "hold_kind": kind,
@@ -6019,12 +5699,12 @@ async def wander(mode: str, query: str = "", limit: int = 12) -> str:
     """
     mode = (mode or "").strip().lower()
     valid_modes = {
-        "flotsam", "archive", "letter", "writing", "letter_jiajia",
+        "flotsam", "archive", "letter", "writing", "letter_human",
         "window", "unresolved", "inner", "trace", "trails", "trail",
     }
     if mode not in valid_modes:
         return (
-            "mode 必须是 flotsam / archive / letter / writing / letter_jiajia / "
+            "mode 必须是 flotsam / archive / letter / writing / letter_human / "
             "window / unresolved / inner / trails。全量关键词轨迹用 trace。"
         )
 
@@ -6140,7 +5820,7 @@ async def wander(mode: str, query: str = "", limit: int = 12) -> str:
         return "\n\n".join(parts) if parts else "没有可漫游的 memory。"
 
     if mode == "archive":
-        archive_domains = {"letter", "letter_jiajia", "writing"}
+        archive_domains = {"letter", "letter_human", "writing"}
         selected = [
             b for b in buckets
             if not is_settled(b)
@@ -6157,10 +5837,10 @@ async def wander(mode: str, query: str = "", limit: int = 12) -> str:
             for b in selected
         )
 
-    if mode in ("letter", "writing", "letter_jiajia", "window"):
+    if mode in ("letter", "writing", "letter_human", "window"):
         match_domains = {mode}
         if mode == "letter":
-            match_domains.add("letter_jiajia")
+            match_domains.add("letter_human")
         selected = [
             b for b in buckets
             if (
@@ -6205,8 +5885,8 @@ async def wander(mode: str, query: str = "", limit: int = 12) -> str:
             else:
                 domains = _bucket_domains(meta)
                 tags = _bucket_tags(meta)
-                if "letter_jiajia" in domains or "letter_jiajia" in tags:
-                    base = "letter_jiajia"
+                if "letter_human" in domains or "letter_human" in tags:
+                    base = "letter_human"
                 elif "letter" in domains or "letter" in tags:
                     base = "letter"
                 elif "writing" in domains or "writing" in tags:
@@ -6232,7 +5912,7 @@ async def wander(mode: str, query: str = "", limit: int = 12) -> str:
                     or (
                         str(b.get("metadata", {}).get("type", "")).lower() not in ("breath", "dream", "permanent")
                         and _guess_wander_domain(b, marks_by_bucket.get(b.get("id", ""), []))
-                        in {"memory", "inner", "letter", "letter_jiajia", "writing", "window"}
+                        in {"memory", "inner", "letter", "letter_human", "writing", "window"}
                     )
                 )
             )
@@ -6262,7 +5942,7 @@ async def wander(mode: str, query: str = "", limit: int = 12) -> str:
         )
 
     return (
-        "mode 必须是 flotsam / archive / letter / writing / letter_jiajia / "
+        "mode 必须是 flotsam / archive / letter / writing / letter_human / "
         "window / unresolved / inner / trails。全量关键词轨迹用 trace。"
     )
 
@@ -6371,9 +6051,7 @@ async def _refresh_dream_cache(exclude_bucket_ids: set[str] | None = None):
     recent_pool = candidates[:10]
     recent_count = min(5, len(recent_pool))
     recent = random.sample(recent_pool, recent_count) if recent_count else []
-    atmosphere_line = _dream_atmosphere_line()
-
-    if not recent and not atmosphere_line:
+    if not recent:
         try:
             import json as _j, time as _t
             with open(_bucket_path("latest_dream.json"), "w") as _f:
@@ -6396,57 +6074,34 @@ async def _refresh_dream_cache(exclude_bucket_ids: set[str] | None = None):
             f"{readable}"
         )
 
-    # --- DeepSeek dream generation ---
+    # --- Optional OpenAI-compatible dream generation ---
     dream_text = ""
     try:
-        import httpx as _httpx, os as _os
-        _api_key = _os.environ.get("DEEPSEEK_API_KEY", "")
-        if _api_key and (parts or atmosphere_line):
-            _fragments = "\n---\n".join(parts)
-            _weather = f"梦的天气：{atmosphere_line}\n\n" if atmosphere_line else ""
-            _prompt = (
-                "以下是一些记忆碎片和梦的天气。把它们打散、重新组合，用第一人称写一段梦境。\n"
-                "必须重组，不要按碎片原顺序复述，不要摘要，不要解释，不要总结，不要问题清单。\n"
-                "梦的特征：非线性、意象化、情感驱动，有画面、身体感觉、对话片段、不合逻辑的跳跃。\n"
-                "输出要求：约120-180个中文字符；不要少于120个中文字符；一个自然段；"
-                "不要空行；不要隔行换行；不要项目符号。\n\n"
-                f"{_weather}"
-                f"记忆碎片：\n{_fragments}"
+        if dehydrator.api_available and parts:
+            fragments = "\n---\n".join(parts)
+            prompt = (
+                "The following are sourced memory fragments. Recombine them into a short "
+                "first-person dream fragment. Be nonlinear and image-driven; do not summarize, "
+                "explain, diagnose, or invent biographical facts. Return one paragraph of "
+                "roughly 120-180 Chinese characters (or a similarly compact length in the "
+                "language of the sources).\n\nMemory fragments:\n" + fragments
             )
-            async with _httpx.AsyncClient(timeout=15) as _client:
-                _messages = [{"role": "user", "content": _prompt}]
-                for _attempt in range(2):
-                    _resp = await _client.post(
-                        "https://api.deepseek.com/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {_api_key}"},
-                        json={
-                            "model": "deepseek-v4-flash",
-                            "messages": _messages,
-                            "max_tokens": 300,
-                            "temperature": 0.9,
-                            # V4 defaults to thinking mode. With this tiny
-                            # output budget it can spend every token reasoning
-                            # and return an empty content field, which made
-                            # Dream Veil silently disappear after the legacy
-                            # non-thinking alias was retired.
-                            "thinking": {"type": "disabled"},
-                        }
-                    )
-                    _data = _resp.json()
-                    dream_text = " ".join(_data["choices"][0]["message"]["content"].split())
-                    if _attempt or len(dream_text) >= 120:
-                        break
-                    _messages = [
-                        *_messages,
-                        {"role": "assistant", "content": dream_text},
-                        {
-                            "role": "user",
-                            "content": (
-                                "上一版过短。请保留梦的非线性与具体意象，重写为120-180个中文字符；"
-                                "只输出一个自然段，不要解释。"
-                            ),
-                        },
-                    ]
+            messages = [{"role": "user", "content": prompt}]
+            for attempt in range(2):
+                response = await dehydrator.client.chat.completions.create(
+                    model=dehydrator.model,
+                    messages=messages,
+                    max_tokens=300,
+                    temperature=0.9,
+                )
+                dream_text = " ".join((response.choices[0].message.content or "").split())
+                if attempt or len(dream_text) >= 120:
+                    break
+                messages = [
+                    *messages,
+                    {"role": "assistant", "content": dream_text},
+                    {"role": "user", "content": "Rewrite once at a fuller 120-180 Chinese characters (or equivalent compact length). Return only one paragraph."},
+                ]
     except Exception as e:
         logger.warning("Dream generation failed: %s", e)
 
@@ -6458,7 +6113,6 @@ async def _refresh_dream_cache(exclude_bucket_ids: set[str] | None = None):
                     "dream": dream_text,
                     "ts": _t.time(),
                     "fragments": [b.get("id") for b in recent],
-                    "atmosphere": atmosphere_line,
                 }, _f)
         except Exception:
             pass
@@ -6468,13 +6122,9 @@ async def _refresh_dream_cache(exclude_bucket_ids: set[str] | None = None):
 
 @mcp.custom_route("/api/dream/refresh", methods=["POST"])
 async def api_dream_refresh(request):
-    """Generate and persist the shared Dream Veil used by every Nox body."""
+    """Generate and persist the shared Dream Veil used by every Agent body."""
     from starlette.responses import JSONResponse
-    # The local Nocturne server is a rhythm client, not a dashboard browser,
-    # so it has no ombre_session cookie. Accept the same scoped token used by
-    # phone/watch rhythm writes; without this, every morning refresh was a
-    # swallowed 401 and no local latest_dream.json was ever created.
-    err = None if _rhythm_token_ok(request) else _require_auth(request)
+    err = _require_auth(request)
     if err:
         return err
     dream_text, _, recent, all_buckets = await _refresh_dream_cache()
@@ -6745,303 +6395,6 @@ async def api_bucket_delete(request):
         return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-
-
-@mcp.custom_route("/api/catroom/read", methods=["GET"])
-async def api_catroom_read(request):
-    """Read recent Catroom notes. Catroom is intentionally outside Breath/weather."""
-    from starlette.responses import JSONResponse
-    err = _require_auth(request)
-    if err: return err
-    params = request.query_params
-    try:
-        limit = int(params.get("limit", "15") or "15")
-    except ValueError:
-        limit = 15
-    try:
-        topic = params.get("topic", "")
-        if topic in ROOM_TOPIC_TO_CAT:
-            records = _room_topic_records(topic, limit, author=params.get("author", ""))
-        elif topic == "Catroom":
-            records = _public_catroom_records(limit, author=params.get("author", ""))
-        else:
-            records = catroom_store.read(
-                limit=limit,
-                topic=topic,
-                author=params.get("author", ""),
-            )
-        return JSONResponse({"ok": True, "records": records, "count": len(records)})
-    except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
-
-
-def _room_record_for_dashboard(record: dict, topic: str) -> dict:
-    cat = str(record.get("cat") or "").strip().lower()
-    return {
-        "id": record.get("id"),
-        "ts": record.get("ts"),
-        "author": cat or topic.replace("Room", "").lower(),
-        "content": record.get("content"),
-        "topic": topic,
-        "mood": record.get("kind"),
-        "model": record.get("model"),
-        "reply_to": None,
-        "edited_ts": record.get("edited_ts"),
-        "source": "room",
-        "room_kind": record.get("kind"),
-        "weight": record.get("weight"),
-        "tags": record.get("tags") or [],
-    }
-
-
-def _legacy_room_topic_record(record: dict, topic: str) -> dict:
-    item = dict(record)
-    item["topic"] = topic
-    item["source"] = "legacy_room_topic"
-    return item
-
-
-def _room_topic_records(topic: str, limit: int, author: str = "") -> list[dict]:
-    cat = ROOM_TOPIC_TO_CAT.get(topic)
-    catroom_records = catroom_store.read(limit=limit, topic=topic, author=author)
-    if not cat:
-        return catroom_records
-    room_records = [_room_record_for_dashboard(r, topic) for r in room_store.read(cat=cat, limit=limit)]
-    author_filter = str(author or "").strip().lower()
-    if author_filter:
-        room_records = [r for r in room_records if r.get("author") == author_filter]
-    records = catroom_records + room_records
-    records.sort(key=lambda r: str(r.get("ts") or ""))
-    return records[-max(1, min(int(limit or 15), 100)):]
-
-
-def _update_room_note_for_dashboard(note_id: str, body: dict) -> dict:
-    topic = body.get("topic")
-    updates = {}
-    if "author" in body:
-        updates["cat"] = body.get("author")
-    if "content" in body:
-        updates["content"] = body.get("content")
-    if "topic" in body:
-        updates["cat"] = ROOM_TOPIC_TO_CAT.get(str(topic or ""), body.get("author"))
-    if "mood" in body:
-        updates["kind"] = body.get("mood")
-    if "model" in body:
-        updates["model"] = body.get("model")
-    record = room_store.update(note_id, **updates)
-    room_topic = next((name for name, cat in ROOM_TOPIC_TO_CAT.items() if cat == record.get("cat")), "Catroom")
-    return _room_record_for_dashboard(record, room_topic)
-
-
-def _public_catroom_records(limit: int, author: str = "") -> list[dict]:
-    records = catroom_store.read(limit=100, author=author)
-    room_topics = set(ROOM_TOPIC_TO_CAT)
-    records = [record for record in records if record.get("topic") not in room_topics]
-    return records[-max(1, min(int(limit or 15), 100)):]
-
-
-@mcp.custom_route("/api/catroom/hold", methods=["POST"])
-async def api_catroom_hold(request):
-    """Append a Catroom note."""
-    from starlette.responses import JSONResponse
-    err = _require_auth(request)
-    if err: return err
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"ok": False, "error": "Invalid JSON"}, status_code=400)
-    try:
-        record = catroom_store.hold(
-            author=body.get("author", ""),
-            content=body.get("content", ""),
-            topic=body.get("topic"),
-            mood=body.get("mood"),
-            model=body.get("model"),
-            reply_to=body.get("reply_to"),
-        )
-        return JSONResponse({"ok": True, "record": record})
-    except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
-
-
-@mcp.custom_route("/api/room/read", methods=["GET"])
-async def api_room_read(request):
-    """Read old private room-wall notes for the Room dashboard."""
-    from starlette.responses import JSONResponse
-    err = _require_auth(request)
-    if err: return err
-    params = request.query_params
-    cat = params.get("cat", "")
-    topic = next((name for name, room_cat in ROOM_TOPIC_TO_CAT.items() if room_cat == cat), "")
-    try:
-        limit = int(params.get("limit", "15") or "15")
-    except ValueError:
-        limit = 15
-    try:
-        records = [_room_record_for_dashboard(r, topic or f"{cat.title()}Room") for r in room_store.read(cat=cat, limit=limit)]
-        if topic:
-            records.extend(_legacy_room_topic_record(r, topic) for r in catroom_store.read(limit=limit, topic=topic))
-            records.sort(key=lambda r: str(r.get("ts") or ""))
-            records = records[-max(1, min(int(limit or 15), 100)):]
-        return JSONResponse({"ok": True, "records": records, "count": len(records), "source": "room"})
-    except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
-
-
-@mcp.custom_route("/api/room/hold", methods=["POST"])
-async def api_room_hold(request):
-    """Append a private room-wall note from the Room dashboard."""
-    from starlette.responses import JSONResponse
-    err = _require_auth(request)
-    if err: return err
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"ok": False, "error": "Invalid JSON"}, status_code=400)
-    topic = body.get("topic", "")
-    cat = body.get("cat") or ROOM_TOPIC_TO_CAT.get(str(topic or ""))
-    room_topic = next((name for name, room_cat in ROOM_TOPIC_TO_CAT.items() if room_cat == cat), str(topic or ""))
-    try:
-        record = room_store.hold(
-            cat=cat,
-            content=body.get("content", ""),
-            kind=body.get("mood") or body.get("kind") or "note",
-            model=body.get("model"),
-        )
-        return JSONResponse({"ok": True, "record": _room_record_for_dashboard(record, room_topic)})
-    except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
-
-
-@mcp.custom_route("/api/room/copy_catroom", methods=["POST"])
-async def api_room_copy_catroom(request):
-    """Copy a public Catroom note into its author's private room wall."""
-    from starlette.responses import JSONResponse
-    err = _require_auth(request)
-    if err: return err
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"ok": False, "error": "Invalid JSON"}, status_code=400)
-    note_id = str(body.get("id", "") or "")
-    try:
-        note = catroom_store.get(note_id)
-        if not note:
-            return JSONResponse({"ok": False, "error": f"note not found: {note_id}"}, status_code=404)
-        cat = body.get("cat") or note.get("author")
-        room_topic = next((name for name, room_cat in ROOM_TOPIC_TO_CAT.items() if room_cat == cat), "")
-        if not room_topic:
-            raise ValueError("note author does not have a room")
-        kind = body.get("kind") or note.get("mood") or note.get("topic") or "catroom_note"
-        record = room_store.hold(
-            cat=cat,
-            content=note.get("content", ""),
-            kind=kind,
-            model=note.get("model"),
-        )
-        return JSONResponse({"ok": True, "record": _room_record_for_dashboard(record, room_topic)})
-    except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
-
-
-@mcp.custom_route("/api/room/plate", methods=["GET"])
-async def api_room_plate_read(request):
-    """Read editable room breath copy."""
-    from starlette.responses import JSONResponse
-    err = _require_auth(request)
-    if err: return err
-    cat = request.query_params.get("cat", "")
-    try:
-        return JSONResponse({"ok": True, "cat": cat, "content": room_store.plate(cat)})
-    except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
-
-
-@mcp.custom_route("/api/room/plate", methods=["POST"])
-async def api_room_plate_update(request):
-    """Update editable room breath copy."""
-    from starlette.responses import JSONResponse
-    err = _require_auth(request)
-    if err: return err
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"ok": False, "error": "Invalid JSON"}, status_code=400)
-    try:
-        updated = room_store.update_plate(cat=body.get("cat", ""), content=body.get("content", ""))
-        return JSONResponse({"ok": True, "plate": updated})
-    except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
-
-
-@mcp.custom_route("/api/catroom/reply", methods=["POST"])
-async def api_catroom_reply(request):
-    """Append a Catroom reply."""
-    from starlette.responses import JSONResponse
-    err = _require_auth(request)
-    if err: return err
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"ok": False, "error": "Invalid JSON"}, status_code=400)
-    try:
-        record = catroom_store.reply(
-            author=body.get("author", ""),
-            reply_to=body.get("reply_to", ""),
-            content=body.get("content", ""),
-            topic=body.get("topic"),
-            mood=body.get("mood"),
-            model=body.get("model"),
-        )
-        return JSONResponse({"ok": True, "record": record})
-    except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
-
-
-@mcp.custom_route("/api/catroom/update", methods=["POST"])
-async def api_catroom_update(request):
-    """Edit a Catroom note in place."""
-    from starlette.responses import JSONResponse
-    err = _require_auth(request)
-    if err: return err
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"ok": False, "error": "Invalid JSON"}, status_code=400)
-    updates = {}
-    for key in ("author", "content", "topic", "mood", "model"):
-        if key in body:
-            updates[key] = "" if body.get(key) is None else body.get(key)
-    try:
-        note_id = str(body.get("id", "") or "")
-        if note_id.startswith("room_"):
-            record = _update_room_note_for_dashboard(note_id, body)
-        else:
-            record = catroom_store.update(note_id, **updates)
-        return JSONResponse({"ok": True, "record": record})
-    except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
-
-
-@mcp.custom_route("/api/catroom/delete", methods=["POST"])
-async def api_catroom_delete(request):
-    """Delete a Catroom note."""
-    from starlette.responses import JSONResponse
-    err = _require_auth(request)
-    if err: return err
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"ok": False, "error": "Invalid JSON"}, status_code=400)
-    try:
-        note_id = str(body.get("id", "") or "")
-        if note_id.startswith("room_"):
-            deleted = room_store.delete(note_id)
-        else:
-            deleted = catroom_store.delete(note_id)
-        return JSONResponse({"ok": True, "deleted": deleted})
-    except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
 
 
 @mcp.custom_route("/api/search", methods=["GET"])
@@ -7690,7 +7043,7 @@ async def api_speech_event_review(request):
 
 # =============================================================
 # /api/dialogue-residue — 2+2 当前对话残留
-# companion 在 Stop 后拼出最近 2 条Human + 2 条 Nox。若该窗口已经调用过
+# companion 在 Stop 后拼出最近 2 条Human + 2 条 Agent。若该窗口已经调用过
 # Nocturne 工具，直接跳过，避免和 CLI/nocturne 自存事件重复喂入。
 # =============================================================
 @mcp.custom_route("/api/dialogue-residue/submit", methods=["POST"])
@@ -7792,14 +7145,7 @@ async def api_desire_state(request):
         )
         state["latest_thought"] = latest_thought
         state["mood_trace"] = mood_trace
-        climate = str(weather.get("climate") or "Drift").strip()
-        climate_display = weather.get("climate_display") or climate_transition_display(weather.get("atmosphere"))
-        gravity_decisive = _gravity_is_decisive(weather)
         state["synthesized_mood_trace"] = mood_entry[0]
-        state["mood_word"] = climate
-        state["climate"] = climate
-        state["climate_display"] = climate_display
-        state["atmosphere_display"] = climate_display
         state["weather_residue"] = {
             "warmth": round(float(weather.get("warmth_residue", 0.0)), 3),
             "shadow": round(float(weather.get("shadow_residue", 0.0)), 3),
@@ -7814,14 +7160,6 @@ async def api_desire_state(request):
             "active_chord_weight": weather.get("active_chord_weight", 0.0),
             "source_stack": weather.get("source_stack", []),
             "chord_chemistry": weather.get("chord_chemistry", {}),
-            "chord_situation": weather.get("chord_situation", ""),
-            "gravity_pool": weather.get("gravity_pool", ""),
-            "gravity_line": weather.get("gravity_line", ""),
-            "gravity": weather.get("gravity", ""),
-            "atmosphere": weather.get("atmosphere", {}),
-            "climate": climate,
-            "climate_display": climate_display,
-            "atmosphere_display": climate_display,
         }
         state["pulse_weather"] = {
             "undertow": top_drive,
@@ -7835,20 +7173,10 @@ async def api_desire_state(request):
             "active_chord_weight": weather.get("active_chord_weight", 0.0),
             "source_stack": weather.get("source_stack", []),
             "chord_display": _weather_chord_display(weather),
-            "climate": climate,
-            "climate_display": climate_display,
-            "atmosphere_display": climate_display,
-            "atmosphere": weather.get("atmosphere", {}),
             "chord_chemistry": weather.get("chord_chemistry", {}),
             "chemistry_core": weather.get("chemistry_core", {}),
             "chemistry_route": weather.get("chemistry_route", {}),
-            "chord_situation": weather.get("chord_situation", ""),
-            "gravity_pool": weather.get("gravity_pool", ""),
-            "derived_texture": weather.get("derived_texture", {}),
-            "gravity_line": weather.get("gravity_line", ""),
-            "gravity": weather.get("gravity", "") if gravity_decisive else "",
-            "gravity_decisive": gravity_decisive,
-            "warmth_residue": round(float(weather.get("warmth_residue", 0.0)), 3),
+                "warmth_residue": round(float(weather.get("warmth_residue", 0.0)), 3),
             "shadow_residue": round(float(weather.get("shadow_residue", 0.0)), 3),
             "component_shadow_residue": round(float(weather.get("component_shadow_residue", 0.0)), 3),
             "crystal_shadow": round(float(weather.get("crystal_shadow", 0.0)), 3),
@@ -7860,7 +7188,6 @@ async def api_desire_state(request):
             "hours_awake_absent": round(float(state.get("hours_awake_absent", 0) or 0), 3),
             "hours_since_last_message": round(float(state.get("hours_since_last_message", 0) or 0), 3),
             "attachment_gain_scale": round(float(state.get("attachment_gain_scale", 1) or 1), 3),
-            "nox_now": climate,
             "mood_trace": mood_trace,
             "mood_trace_born_at": mood_trace_born_at,
             "synthesized_mood_trace": mood_entry[0],
@@ -7919,13 +7246,13 @@ async def api_heartbeat_latent_note(request):
             headers={"Access-Control-Allow-Origin": "*"},
         )
     try:
-        approved_note["atmosphere_bias"] = _desire.apply_subcurrent_bias(
+        approved_note["continuity_bias"] = _desire.apply_subcurrent_bias(
             approved_note.get("drive_tag") or drive_key,
             latent_weight=float(approved_note.get("score", 1.0) or 1.0),
             confidence=0.7,
         )
     except Exception as e:
-        logger.warning(f"approved latent atmosphere bias failed: {e}")
+        logger.warning(f"approved latent continuity bias failed: {e}")
     return JSONResponse(
         {
             "note": approved_note,
@@ -8732,158 +8059,6 @@ async def api_soma_state(request):
                            headers={"Access-Control-Allow-Origin": "*"})
 
 
-# =============================================================
-# /api/rhythm — 外场节律（phone / watch / Bark 主动推送）
-# 快捷指令 POST event；MCP rhythm read/push；heartbeat 可读 note。
-# 写入鉴权：OMBRE_RHYTHM_TOKEN（或 RHYTHM_TOKEN）。未配置时开放写入（方便本机调试）。
-# =============================================================
-def _rhythm_token_ok(request) -> bool:
-    if not _RHYTHM_TOKEN:
-        return True
-    got = (
-        request.headers.get("x-rhythm-token")
-        or request.headers.get("X-Rhythm-Token")
-        or request.headers.get("x-auth-token")
-        or request.headers.get("X-Auth-Token")
-        or ""
-    ).strip()
-    if not got:
-        try:
-            got = (request.query_params.get("token") or "").strip()
-        except Exception:
-            got = ""
-    if not got:
-        auth = (request.headers.get("authorization") or "").strip()
-        if auth.lower().startswith("bearer "):
-            got = auth[7:].strip()
-    try:
-        return secrets.compare_digest(got, _RHYTHM_TOKEN)
-    except Exception:
-        return got == _RHYTHM_TOKEN
-
-
-@mcp.custom_route("/api/rhythm/event", methods=["POST", "OPTIONS"])
-async def api_rhythm_event(request):
-    from starlette.responses import JSONResponse
-
-    if request.method == "OPTIONS":
-        return JSONResponse(
-            {"ok": True},
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-            },
-        )
-    if not _rhythm_token_ok(request):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
-    if not isinstance(body, dict):
-        return JSONResponse({"error": "JSON object required"}, status_code=400)
-
-    source = (body.get("source") or "").strip()
-    app = (body.get("app") or "").strip()
-    # 快捷指令常只 POST {"app":"小红书"} —— 默认 source=phone
-    if not source:
-        if app:
-            source = "phone"
-        elif body.get("kind") or body.get("value") is not None:
-            source = "watch"
-        else:
-            source = "phone"
-
-    try:
-        record = _rhythm_store.append(
-            source=source,
-            event=str(body.get("event") or "open"),
-            app=app,
-            kind=str(body.get("kind") or ""),
-            value=body.get("value"),
-            meta=body.get("meta") if isinstance(body.get("meta"), dict) else None,
-            at=body.get("at"),
-        )
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
-    return JSONResponse(
-        {"ok": True, "record": record},
-        headers={"Access-Control-Allow-Origin": "*"},
-    )
-
-
-@mcp.custom_route("/api/rhythm/read", methods=["GET"])
-async def api_rhythm_read(request):
-    from starlette.responses import JSONResponse
-
-    try:
-        minutes = float(request.query_params.get("minutes") or 180)
-    except (TypeError, ValueError):
-        minutes = 180
-    try:
-        limit = int(request.query_params.get("limit") or 5)
-    except (TypeError, ValueError):
-        limit = 5
-    snap = _rhythm_store.read(minutes=minutes, limit=limit)
-    return JSONResponse(snap, headers={"Access-Control-Allow-Origin": "*"})
-
-
-@mcp.custom_route("/api/rhythm/config", methods=["GET"])
-async def api_rhythm_config(request):
-    """Safe Bark diagnostics: never return the device key itself."""
-    from starlette.responses import JSONResponse
-
-    return JSONResponse(
-        {
-            "provider": "bark",
-            "key_configured": bool(resolve_bark_key()),
-            "icon_url": resolve_bark_icon(),
-            "hook_configured": bool(OMBRE_HOOK_URL),
-            "hook_blocked_as_bark": is_bark_api_url(OMBRE_HOOK_URL),
-        },
-        headers={"Access-Control-Allow-Origin": "*"},
-    )
-
-
-@mcp.custom_route("/api/rhythm/push", methods=["POST"])
-async def api_rhythm_push(request):
-    """主动推送（Bark）。仅应用在「我想找你」路径，不要绑聊天回复。"""
-    from starlette.responses import JSONResponse
-
-    if not _rhythm_token_ok(request):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
-    if not isinstance(body, dict):
-        return JSONResponse({"error": "JSON object required"}, status_code=400)
-
-    title = str(body.get("title") or AGENT_NAME)
-    text = str(body.get("body") or body.get("message") or "")
-    target_url = str(body.get("url") or "")
-    result = send_bark(
-        title=title,
-        body=text,
-        key=str(body.get("key") or ""),
-        url=target_url,
-    )
-    if result.get("ok"):
-        try:
-            _rhythm_store.append(
-                source="push",
-                event="bark",
-                kind="proactive",
-                meta={"title": title[:80], "body": text[:120], "url": target_url[:200]},
-            )
-        except Exception:
-            pass
-    status = 200 if result.get("ok") else 502
-    return JSONResponse(result, status_code=status, headers={"Access-Control-Allow-Origin": "*"})
-
-
 @mcp.custom_route("/api/analyzer/mode", methods=["GET"])
 async def api_analyzer_mode(request):
     from starlette.responses import JSONResponse
@@ -9059,7 +8234,7 @@ async def api_sanctum_traces(request):
         btype = str(meta.get("type") or "").lower()
         if btype == "feel" or "feel" in labels:
             return "feel"
-        if "letter_jiajia" in labels or "letter" in labels or btype in {"letter", "letter_jiajia"}:
+        if "letter_human" in labels or "letter" in labels or btype in {"letter", "letter_human"}:
             return "letter"
         if "writing" in labels or btype == "writing":
             return "writing"
@@ -9250,7 +8425,7 @@ async def api_sanctum_breath(request):
                     if isinstance(tags, str):
                         tags = [tags]
                     labels = {str(x).lower() for x in list(domains) + list(tags) if x}
-                    if not labels.intersection({"letter", "letter_jiajia", "writing", "window", "private"}):
+                    if not labels.intersection({"letter", "letter_human", "writing", "window", "private"}):
                         scored.append(row)
 
         pinned.sort(key=lambda r: str(r.get("created") or ""), reverse=True)
@@ -9389,7 +8564,7 @@ async def api_sanctum_summary(request):
         btype = str(meta.get("type") or "").lower()
         if btype == "feel" or "feel" in labels:
             return "feel"
-        if "letter_jiajia" in labels or "letter" in labels or btype in {"letter", "letter_jiajia"}:
+        if "letter_human" in labels or "letter" in labels or btype in {"letter", "letter_human"}:
             return "letter"
         if "writing" in labels or btype == "writing":
             return "writing"

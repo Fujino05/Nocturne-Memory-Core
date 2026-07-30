@@ -6,7 +6,6 @@ pytest.importorskip("mcp.server.fastmcp")
 
 from server import (
     _compact_desire_state,
-    _gravity_is_decisive,
     _undercurrent_state,
     _undertow_snapshot,
     _weather_panel_lines,
@@ -37,11 +36,8 @@ def test_compact_desire_state_keeps_hook_fields_without_full_internal_state():
             "base_warmth": 0.57,
             "base_shadow": 0.20,
             "current_chord": "Fmaj7#11",
-            "gravity": "重心往屋里坠，手还没松。",
-            "gravity_decisive": True,
             "chemistry_core": {"depth": 0.7},
             "chemistry_route": {"pull": 0.6, "vector": "toward_house"},
-            "gravity_pool": "pull",
             "derived_texture": {"primary": "depth"},
             "source_stack": [{"debug": True}],
         },
@@ -82,10 +78,8 @@ def test_compact_desire_state_keeps_hook_fields_without_full_internal_state():
     assert compact["drive_events"][0]["reason"] == "ok"
     assert "source_stack" not in compact["drive_events"][0]["brain"]
     assert "source_stack" not in compact["pulse_weather"]
-    assert compact["weather_panel"]["atmosphere"] == "Overcast"
     assert compact["effective_activations"]["attachment"] == 0.139
     assert compact["weather_panel"]["chord"] == "Gmaj7 → Fmaj7"
-    assert compact["weather_panel"]["gravity"] == "重心往屋里坠，手还没松。"
     assert compact["weather_panel"]["now_playing"] == "Light Song - haruka nakamura"
     assert _weather_panel_lines(compact["weather_panel"])[-1] == "♪ On Air：Light Song - haruka nakamura"
     assert not any(line.startswith("Warmth/Shadow") for line in _weather_panel_lines(compact["weather_panel"]))
@@ -96,8 +90,6 @@ def test_compact_desire_state_keeps_hook_fields_without_full_internal_state():
     assert compact["weather_residue"]["base_warmth"] == 0.57
     assert compact["weather_residue"]["base_shadow"] == 0.20
     assert compact["pulse_weather"]["chemistry_core"] == {"depth": 0.7}
-    assert compact["pulse_weather"]["gravity_pool"] == "pull"
-    assert compact["pulse_weather"]["gravity"] == "重心往屋里坠，手还没松。"
 
     undercurrent = _undercurrent_state(state)
     assert undercurrent["Drive"] == {"attachment": 0.4, "stress": 0.2}
@@ -119,18 +111,6 @@ def test_undertow_compares_pressure_above_each_own_baseline():
     assert drive == "stewardship"
     assert pressure == 0.273
     assert raw == 0.453
-
-
-def test_gravity_requires_non_hover_route_with_clear_margin():
-    assert not _gravity_is_decisive(
-        {"chord_chemistry": {"route": {"vector": "hover", "scores": {"hover": 0.51, "toward_house": 0.44}}}}
-    )
-    assert not _gravity_is_decisive(
-        {"chord_chemistry": {"route": {"vector": "toward_house", "scores": {"toward_house": 0.51, "hover": 0.46}}}}
-    )
-    assert _gravity_is_decisive(
-        {"chord_chemistry": {"route": {"vector": "toward_house", "scores": {"toward_house": 0.70, "hover": 0.46}}}}
-    )
 
 
 def test_thought_pool_keeps_full_text_in_compact_readouts():

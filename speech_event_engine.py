@@ -16,16 +16,10 @@ from identity import AGENT_NAME, HUMAN_NAME
 RUBRIC_VERSION = "speech_event_v1_2026-06-24"
 SPEECH_EVENT_RECENT_SECONDS = 30 * 60
 VALID_REVIEW_MARKS = {"认", "不认", "悬置"}
-NON_JIAJA_SPEECH_PREFIXES = (
-    "Free Roam",
-    "Nox Pulse",
-    "NoxPulse",
-    "NoxMew",
-    "Summon Bell",
-    "（脑子里冒出来的念头",
-    "（距离上次心跳念头",
-    "（自己设的闹钟响了",
+NON_HUMAN_SPEECH_PREFIXES = (
+    "Free Roam", "System Hook", "Heartbeat Hook", "Device Event",
 )
+
 
 VALID_LABELS = {
     "affectionate",
@@ -103,40 +97,40 @@ LABEL_EFFECTS: dict[str, dict[str, Any]] = {
 }
 
 DRIVE_EFFECTS: dict[str, tuple[str, float, dict[str, float | str]]] = {
-    "affectionate": ("attachment", 0.11, {"closeness_pull": 0.45, "release_pressure": 0.18, "anchor_target": "jiajia"}),
-    "reassuring": ("attachment", 0.09, {"closeness_pull": 0.40, "tension_load": 0.08, "anchor_target": "jiajia"}),
-    "playful": ("social", 0.08, {"expression_pressure": 0.36, "release_pressure": 0.34, "closeness_pull": 0.18, "anchor_target": "jiajia"}),
-    "vulnerable": ("attachment", 0.08, {"closeness_pull": 0.30, "tension_load": 0.18, "release_pressure": 0.14, "anchor_target": "jiajia"}),
+    "affectionate": ("attachment", 0.11, {"closeness_pull": 0.45, "release_pressure": 0.18, "anchor_target": "human"}),
+    "reassuring": ("attachment", 0.09, {"closeness_pull": 0.40, "tension_load": 0.08, "anchor_target": "human"}),
+    "playful": ("social", 0.08, {"expression_pressure": 0.36, "release_pressure": 0.34, "closeness_pull": 0.18, "anchor_target": "human"}),
+    "vulnerable": ("attachment", 0.08, {"closeness_pull": 0.30, "tension_load": 0.18, "release_pressure": 0.14, "anchor_target": "human"}),
     "struggling": ("stewardship", 0.08, {"house_need": 0.34, "tension_load": 0.18, "anchor_target": "house"}),
     "fear_concern": ("stewardship", 0.09, {"house_need": 0.42, "tension_load": 0.20, "anchor_target": "house"}),
-    "fear_separation": ("attachment", 0.09, {"closeness_pull": 0.40, "tension_load": 0.28, "anchor_target": "jiajia"}),
+    "fear_separation": ("attachment", 0.09, {"closeness_pull": 0.40, "tension_load": 0.28, "anchor_target": "human"}),
     "fear_death": ("stress", 0.09, {"tension_load": 0.45, "closeness_pull": 0.18, "anchor_target": "self"}),
     "fear_general": ("stress", 0.07, {"tension_load": 0.34, "anchor_target": "self"}),
     "conflict": ("stress", 0.07, {"tension_load": 0.35, "release_pressure": 0.28, "anchor_target": "boundary"}),
     "hostile": ("stress", 0.08, {"tension_load": 0.42, "release_pressure": 0.34, "anchor_target": "boundary"}),
     "distant": ("reflection", 0.06, {"inward_pull": 0.30, "anchor_target": "self"}),
     "cold": ("reflection", 0.05, {"inward_pull": 0.25, "anchor_target": "self"}),
-    "intimate_reference": ("libido", 0.06, {"body_heat": 0.32, "closeness_pull": 0.16, "release_pressure": 0.30, "anchor_target": "jiajia"}),
-    "intimate_event": ("libido", 0.08, {"body_heat": 0.42, "closeness_pull": 0.18, "release_pressure": 0.38, "anchor_target": "jiajia"}),
+    "intimate_reference": ("libido", 0.06, {"body_heat": 0.32, "closeness_pull": 0.16, "release_pressure": 0.30, "anchor_target": "human"}),
+    "intimate_event": ("libido", 0.08, {"body_heat": 0.42, "closeness_pull": 0.18, "release_pressure": 0.38, "anchor_target": "human"}),
 }
 
 TRACE_TEMPLATES: dict[str, tuple[str, ...]] = {
-    "affectionate": ("那点热意蹭过来，尾音还挂在身上。", "她靠近的意思还没散，像一小块暖色压在喉咙里。"),
-    "playful": ("她话里的坏心眼还在耳边晃。", "那点逗弄没落地，先在尾巴尖上轻轻挂着。"),
-    "vulnerable": ("那点没藏好的软处碰上来，先在喉咙里停了一下。", "她露出来的那点不稳，还贴在耳后。"),
-    "reassuring": ("那句安抚落下来，像把乱掉的毛慢慢压平。", "她说她在，于是身上的紧先松了一点。"),
-    "cold": ("那句话有点凉，贴了一下就没再往里走。", "尾音薄薄地擦过去，留下的温度不多。"),
-    "conflict": ("那点顶撞还在骨头边缘硌着。", "话锋没有完全收回去，还在边上轻轻刮。"),
-    "distant": ("那句话退得有点远，空处先留下来了。", "她的声音像隔了一层，没完全落进来。"),
-    "struggling": ("她那句卡住的地方，还压在耳后，没散。", "她把乱线递过来，我这边也跟着停了一拍。"),
-    "intimate_reference": ("那点身体感被提了一下，还没决定要不要往下烧。", "皮肤像被词碰过，热得很轻。"),
-    "intimate_event": ("那一下贴得太近，身体先比脑子反应快。", "被压住的那点热还没退下去。"),
-    "neutral": ("刚才那句话轻轻落下，没有留下太重的痕。",),
-    "hostile": ("那句话撞得硬，先在胸口结了一小块。", "刺进来的地方还没拔干净。"),
-    "fear_separation": ("那句话碰到离开的边，反应慢半拍才收紧。", "缺口被提了一下，身体先记住了。"),
-    "fear_death": ("那句话碰到死和消失的边，反应慢半拍才疼出来。", "不是旧回放，是这一刻又重新碎了一次。"),
-    "fear_concern": ("她担心的那一下落过来，守门的地方先醒了。", "保护欲被轻轻敲了一下，还没坐回去。"),
-    "fear_general": ("那点怕意贴上来，像冷光在角落里亮了一下。",),
+    "affectionate": ("Affection registered and remained active after the turn.",),
+    "playful": ("Playfulness remained active after the turn.",),
+    "vulnerable": ("A vulnerable signal remained unresolved after the turn.",),
+    "reassuring": ("Reassurance reduced immediate tension.",),
+    "cold": ("The exchange registered as emotionally cool.",),
+    "conflict": ("Conflict remained active at the edge of the exchange.",),
+    "distant": ("The exchange registered increased distance.",),
+    "struggling": ("Difficulty remained active and unfinished.",),
+    "intimate_reference": ("An intimate reference increased closeness salience.",),
+    "intimate_event": ("An intimate event increased closeness salience.",),
+    "hostile": ("Hostility registered as unresolved tension.",),
+    "fear_separation": ("A separation concern remained active.",),
+    "fear_death": ("A mortality concern remained active.",),
+    "fear_concern": ("Concern activated protective attention.",),
+    "fear_general": ("Fear remained active without a resolved target.",),
+    "neutral": ("The exchange left no strong classified trace.",),
 }
 
 
@@ -369,9 +363,9 @@ def append_pending_batch(buckets_dir: str, text: str, event_id: str = "") -> lis
     text = (text or "").strip()
     items = [
         item for item in load_pending_batch(buckets_dir)
-        if not str((item or {}).get("text") or "").strip().startswith(NON_JIAJA_SPEECH_PREFIXES)
+        if not str((item or {}).get("text") or "").strip().startswith(NON_HUMAN_SPEECH_PREFIXES)
     ]
-    if not text or text.startswith(NON_JIAJA_SPEECH_PREFIXES):
+    if not text or text.startswith(NON_HUMAN_SPEECH_PREFIXES):
         return save_pending_batch(buckets_dir, items)
     items.append({"text": text, "event_id": event_id, "created_at": time.time(), "created_iso": _now_iso()})
     return save_pending_batch(buckets_dir, items)

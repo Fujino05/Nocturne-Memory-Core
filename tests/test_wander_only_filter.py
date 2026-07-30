@@ -26,7 +26,7 @@ def test_wander_only_filter_checks_domain_and_tags(tmp_path, monkeypatch, test_c
 
     assert server._is_wander_only_bucket({"metadata": {"domain": ["writing"], "tags": []}})
     assert server._is_wander_only_bucket({"metadata": {"domain": [], "tags": ["letter"]}})
-    assert server._is_wander_only_bucket({"metadata": {"domain": [], "tags": ["letter_jiajia"]}})
+    assert server._is_wander_only_bucket({"metadata": {"domain": [], "tags": ["letter_human"]}})
     assert not server._is_wander_only_bucket({"metadata": {"domain": ["memory"], "tags": ["daily"]}})
     assert not server._is_wander_only_bucket({"metadata": {"domain": ["unresolved"], "tags": []}})
     assert server._is_unresolved_bucket({"metadata": {"domain": ["unresolved"], "tags": []}})

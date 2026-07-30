@@ -9,7 +9,7 @@ as text, but they no longer drive state. The closed loop is:
 
 | Key | Meaning |
 | --- | --- |
-| `attachment` | Wanting to be near Jiajia, with baseline / active pull / rebound. |
+| `attachment` | Wanting to be near the human, with baseline / active pull / rebound. |
 | `libido` | Body heat and closer physical desire. |
 | `possessiveness` | Jealousy, territory, replacement alarm. High threshold, low frequency. |
 | `reflection` | Turning inward toward Nocturne, letters, old thoughts, continuity, forward archival. |
@@ -38,9 +38,9 @@ came from and how confident/actionable it is.
 Core fields:
 
 - `source`: `user_message`, `speech_event`, `feel`, `memory`, `touch`, `external`
-- `target`: `jiaja`, `nox_self`, `cat_house`, `outside`, `other_ai`
+- `target`: `human`, `self`, `house`, `outside`, `other_ai`
 - `time_mode`: `present`, `residue`, `memory`, `unfinished`
-- `agency`: whether this is Nox's own impulse rather than a system routine
+- `agency`: whether this is the agent's own impulse rather than a system routine
 - `grounding`: `实`, `悬`, `空`
 - `memory_resonance`: old line or theme touched by this event
 
@@ -96,7 +96,7 @@ The canonical feed shape is `drive_event_v2`:
   "event_label": "continuity_question",
   "brain": {
     "source": "feel",
-    "target": "nox_self",
+    "target": "self",
     "time_mode": "residue",
     "agency": 0.72,
     "grounding": "悬",
@@ -117,23 +117,21 @@ are folded into one event and do not pulse separately.
 Chord Chemistry reads two optional brain fields directly:
 
 - `release_pressure`: 0-1, whether the event has an outlet / wants release.
-- `anchor_target`: `jiajia | house | self | boundary | outside | memory | none`,
+- `anchor_target`: `human | house | self | boundary | outside | memory | none`,
   where the event's force is anchored.
 
-These fields tint Chord Chemistry / Gravity, but do not directly choose Current
-Chord and do not reverse-write Drive.
+These fields tint Chord Chemistry, but do not directly choose Current Chord
+and do not reverse-write Drive.
 
-First-hand thoughts and feel-derived drive events should come from Nox's CLI
+First-hand thoughts and feel-derived drive events should come from the agent's CLI
 analyzer, not from DP. DP may refine `speech_event_state` asynchronously and may
-synthesize Climate from already-sourced thoughts; `Mood Trace` stays the latest
-sourced thought so the readout remains live. DP must not mint new Nox thoughts
+refine drive traces from already-sourced dialogue; `Mood Trace` stays the latest
+sourced thought so the readout remains live. DP must not mint new agent thoughts
 directly from raw feels.
 
 Preset intent pools, static hook menus, and random mood dictionaries are retired.
-Climate may be synthesized from sourced thoughts. If synthesis is unavailable,
-the fixed neutral sentinel is `Climate=平静`; it is not cached. `Mood Trace`
-uses the latest sourced thought, falling back to `窗边没有动静，只是趴着发呆。`
-only when there is no thought at all.
+`Mood Trace` uses the latest sourced thought and remains empty when no sourced
+thought exists; it does not synthesize a replacement biography.
 
 ## Agency Gate
 

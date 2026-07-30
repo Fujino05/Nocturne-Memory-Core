@@ -1,33 +1,26 @@
-# Public Boundary
+# Public extraction boundary
 
-This repository is the reusable engine, not a mirror of the private household.
+This repository publishes a complete, runnable continuity-oriented memory
+system. It is not a dump of a private companion and not a skeleton requiring
+users to rebuild the product layer.
 
-## Deliberately excluded
+## Included
 
-- `dashboard.html` and every private dashboard asset
-- `opening.html` and its animation/art direction
-- personal memory buckets, letters, dreams, traces, chat exports, and SQLite data
-- private agent/human biographies and relationship prompts
-- device tokens, SMTP credentials, API keys, webhook secrets, signing profiles
-- hard-coded local filesystem paths and private service URLs
-- the private Nocturne client application
+- Dashboard and MCP operation loop
+- Breath, Trace, Reverie, Echoes, Constellations, and Axis Fragments
+- Drive analysis, DP traces, Drive Ledger, and Thought Pool
+- Drift dimensions NA, PA, and longing
+- dream and latent-fragment designs
+- Markdown memory storage, search, embeddings, import, decay, and migration
 
-## Kept for compatibility
+## Excluded or neutralized
 
-Some internal schema keys predate this extraction (for example legacy anchor or
-room labels). They are data-format compatibility names, not a bundled persona.
-New visible prompt text and identity labels come from `identity.py` and local
-environment variables.
+- the private animated opening and household artwork
+- names, relationship history, persona prose, and real memories
+- credentials, host paths, signing material, private endpoints, and device hooks
+- Catroom and household-specific room topology
+- Atmosphere and Gravity generation, injection, prose pools, and presentation
+- household-specific speech-event coupling
 
-## Release rule
-
-Build public releases from this directory with fresh Git history. Do not merge
-or publish the private repository history: deleted files remain recoverable from
-Git history.
-
-Before publishing:
-
-1. run the test suite;
-2. run `python scripts/public_audit.py`;
-3. inspect `git status` and the staged diff;
-4. confirm no real `buckets/`, `.env`, databases, images, or exports are tracked.
+Compatibility readers may tolerate legacy fields, but the public runtime does
+not generate or depend on excluded layers.

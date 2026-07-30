@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ombre-memory-core
+    name: nocturne-memory-core
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -15,6 +15,6 @@ services:
       - key: OMBRE_BUCKETS_DIR
         value: /opt/render/project/src/buckets
     disk:
-      name: ombre-memory-data
+      name: nocturne-memory-data
       mountPath: /opt/render/project/src/buckets
       sizeGB: 1

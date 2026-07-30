@@ -11,8 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED_DIRS = {".git", ".venv", "__pycache__", ".pytest_cache"}
 FORBIDDEN_FILES = {
-    "dashboard.html",
     "opening.html",
+    "catroom_store.py",
+    "room_store.py",
+    "rhythm_store.py",
     ".env",
     "config.yaml",
 }
@@ -37,6 +39,8 @@ def source_files():
 
 def main() -> int:
     failures: list[str] = []
+    if not (ROOT / "dashboard.html").exists():
+        failures.append("required file missing: dashboard.html")
     for name in FORBIDDEN_FILES:
         if (ROOT / name).exists():
             failures.append(f"forbidden file: {name}")

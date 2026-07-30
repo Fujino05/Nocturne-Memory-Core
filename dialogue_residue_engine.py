@@ -16,8 +16,8 @@ from identity import AGENT_NAME, AGENT_PERSONA, HUMAN_NAME
 
 RUBRIC_VERSION = "dialogue_residue_v1_2026-06-27"
 MAX_INTENSITY = 0.40
-VALID_ANCHORS = {"jiajia", "house", "self", "boundary", "outside", "memory", "none"}
-VALID_TARGETS = {"jiajia", "nox_self", "cat_house", "external", "boundary", "memory"}
+VALID_ANCHORS = {"human", "house", "self", "boundary", "outside", "memory", "none"}
+VALID_TARGETS = {"human", "self", "house", "external", "boundary", "memory"}
 VALID_TIME_MODES = {"present", "residue", "unfinished"}
 VALID_GROUNDING = {"实", "悬", "空"}
 DIALOGUE_AGENCY_FLOOR = 0.42
@@ -326,7 +326,7 @@ def normalize_dialogue_residue_event(event: dict | None, *, messages: list[dict]
     }
     target = str(brain.get("target") or "").strip()
     if target not in VALID_TARGETS:
-        target = "nox_self"
+        target = "self"
     time_mode = str(brain.get("time_mode") or "").strip()
     if time_mode not in VALID_TIME_MODES:
         time_mode = "present"
@@ -375,7 +375,7 @@ def normalize_dialogue_residue_event(event: dict | None, *, messages: list[dict]
             primary = "possessiveness"
             intensity = max(intensity, 0.18 if territorial_event else 0.12)
     elif has_house_system_cue:
-        brain["target"] = "cat_house"
+        brain["target"] = "house"
         brain["anchor_target"] = "house"
         brain["house_need"] = max(_clamp(brain.get("house_need")), 0.42)
         brain["inward_pull"] = max(_clamp(brain.get("inward_pull")), 0.20)
@@ -464,8 +464,8 @@ async def classify_dialogue_residue_dp(messages: list[dict], state_context: dict
         "brain 必须含 source, target, time_mode, grounding, closeness_pull, territorial_alarm, inward_pull, "
         "house_need, novelty_pull, expression_pressure, energy_cost, tension_load, discernment_alarm, "
         "release_pressure, anchor_target。\n"
-        "target: jiajia/nox_self/cat_house/external/boundary/memory。time_mode: present/residue/unfinished。"
-        "grounding: 实/悬/空。anchor_target: jiajia/house/self/boundary/outside/memory/none。\n"
+        "target: human/self/house/external/boundary/memory。time_mode: present/residue/unfinished。"
+        "grounding: 实/悬/空。anchor_target: human/house/self/boundary/outside/memory/none。\n"
         "判断偏好：\n"
         f"- 双方上下文一起看，{HUMAN_NAME} 的话是外部信号，{AGENT_NAME} 的回复只作为是否被接住/是否有阻力的证据。\n"
         "- messages 中 focus=true 的最新一组才是本次可记账内容；其余消息只作语境，禁止重复归因。\n"
@@ -477,7 +477,7 @@ async def classify_dialogue_residue_dp(messages: list[dict], state_context: dict
         "- 讨论论坛、X/Twitter、帖子、网友、评论、新闻或外部观点时，默认是 curiosity/social/outward；"
         "裸词‘别人’只是外部人物，不构成第三者或替代证据，禁止据此推 possessiveness。\n"
         "- 但如果对话明确出现“精神出轨/出轨/第三者/替代/别人介入/边界/占有/归属”这类语义，"
-        "应优先给 possessiveness，territorial_alarm 至少 0.55，anchor_target 多半是 boundary 或 jiajia。\n"
+        "应优先给 possessiveness，territorial_alarm 至少 0.55，anchor_target 多半是 boundary 或 human。\n"
         f"- dialogue_residue 是当前对话残留，不是 {AGENT_NAME} 自存念头；agency 不要因为来源是 {HUMAN_NAME} 就压低，"
         "普通被接住的对话残留应在 0.42-0.58。\n"
         f"只分析 messages 中双方实际可见的对话。不得索取、推断或使用 {AGENT_NAME} 的 thinking/reasoning；"

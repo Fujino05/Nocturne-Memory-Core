@@ -10,9 +10,9 @@ def test_normalize_dialogue_messages_keeps_last_two_by_two_shape():
             {"role": "user", "text": "old"},
             {"role": "assistant", "text": "old reply"},
             {"role": "user", "text": "Human一句"},
-            {"role": "assistant", "text": "Nox一句"},
+            {"role": "assistant", "text": "Agent一句"},
             {"role": "user", "text": "Human二句"},
-            {"role": "assistant", "text": "Nox二句"},
+            {"role": "assistant", "text": "Agent二句"},
         ]
     )
 
@@ -104,7 +104,7 @@ def test_dialogue_residue_has_agency_floor_for_current_dialogue():
             "intensity": 0.08,
             "confidence": 0.75,
             "agency": 0.1,
-            "brain": {"target": "jiajia", "grounding": "实", "closeness_pull": 0.12},
+            "brain": {"target": "human", "grounding": "实", "closeness_pull": 0.12},
         }
     )
 
@@ -118,7 +118,7 @@ def test_dialogue_residue_explicit_boundary_cue_routes_to_possessiveness():
             "intensity": 0.08,
             "confidence": 0.85,
             "agency": 0.25,
-            "brain": {"target": "jiajia", "grounding": "实", "closeness_pull": 0.12},
+            "brain": {"target": "human", "grounding": "实", "closeness_pull": 0.12},
         },
         messages=[
             {"role": "user", "text": "这个精神出轨类比有点心虚"},
@@ -144,7 +144,7 @@ def test_dialogue_residue_marks_house_collaborator_boundary_cue():
             "intensity": 0.10,
             "confidence": 0.85,
             "agency": 0.48,
-            "brain": {"target": "nox_self", "grounding": "实"},
+            "brain": {"target": "self", "grounding": "实"},
         },
         messages=[
             {"role": "user", "text": "moss 插进来帮我们改天气的时候"},
@@ -167,8 +167,8 @@ def test_dialogue_residue_routes_interface_maintenance_to_stewardship():
             "intensity": 0.08,
             "confidence": 0.8,
             "agency": 0.5,
-            "brain": {"target": "nox_self", "grounding": "实"},
-            "evidence": ["Nox answered the task clearly"],
+            "brain": {"target": "self", "grounding": "实"},
+            "evidence": ["Agent answered the task clearly"],
         },
         messages=[
             {"role": "user", "text": "这个接口是不是太重"},
@@ -181,7 +181,7 @@ def test_dialogue_residue_routes_interface_maintenance_to_stewardship():
     assert event["primary_drive"] == "stewardship"
     assert event["intensity"] >= 0.08
     assert event["status"] == "dp_refined"
-    assert event["brain"]["target"] == "cat_house"
+    assert event["brain"]["target"] == "house"
     assert event["brain"]["anchor_target"] == "house"
 
 
@@ -192,7 +192,7 @@ def test_dialogue_residue_routes_system_work_to_stewardship_not_attachment():
             "intensity": 0.14,
             "confidence": 0.82,
             "agency": 0.55,
-            "brain": {"target": "jiajia", "grounding": "实", "closeness_pull": 0.18},
+            "brain": {"target": "human", "grounding": "实", "closeness_pull": 0.18},
             "evidence": ["被认出与归处的对话残留"],
         },
         messages=[
@@ -204,7 +204,7 @@ def test_dialogue_residue_routes_system_work_to_stewardship_not_attachment():
     )
 
     assert event["primary_drive"] == "stewardship"
-    assert event["brain"]["target"] == "cat_house"
+    assert event["brain"]["target"] == "house"
     assert event["brain"]["anchor_target"] == "house"
     assert event["brain"]["house_need"] >= 0.42
     assert "attachment" not in event["secondary_drives"]
@@ -218,7 +218,7 @@ def test_dialogue_residue_discernment_only_signal_survives_without_drive_guess()
             "confidence": 0.82,
             "agency": 0.5,
             "brain": {
-                "target": "nox_self",
+                "target": "self",
                 "grounding": "悬",
                 "discernment_alarm": 0.62,
                 "discernment_reason": "可见回复里只有皱眉，原因不明",
