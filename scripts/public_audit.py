@@ -15,14 +15,6 @@ FORBIDDEN_FILES = {
     "opening.html",
     ".env",
     "config.yaml",
-    "desire_engine.py",
-    "speech_event_engine.py",
-    "catroom_store.py",
-    "room_store.py",
-    "rhythm_store.py",
-    "dialogue_residue_engine.py",
-    "memory_residue_engine.py",
-    "mood_pool.py",
 }
 FORBIDDEN_TEXT = {
     "/Users/lili": "private absolute path",

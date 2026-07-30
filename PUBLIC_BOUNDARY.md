@@ -1,17 +1,33 @@
-# Public extraction boundary
+# Public Boundary
 
-This repository publishes a reusable **memory mechanism**, not a private
-companion runtime.
+This repository is the reusable engine, not a mirror of the private household.
 
-Included: Markdown memory buckets, retrieval, optional embeddings and decay,
-import/migration utilities, independent thought and latent pools, and sourced
-dream synthesis.
+## Deliberately excluded
 
-Excluded: dashboards and opening screens, identity/relationship prompts,
-personal prose and memories, desire/weather/chord/gravity machinery, room or
-catroom state, speech-event analysis, dialogue/memory residue, rhythm/device
-telemetry, push hooks, artwork, credentials, host paths, and private services.
+- `dashboard.html` and every private dashboard asset
+- `opening.html` and its animation/art direction
+- personal memory buckets, letters, dreams, traces, chat exports, and SQLite data
+- private agent/human biographies and relationship prompts
+- device tokens, SMTP credentials, API keys, webhook secrets, signing profiles
+- hard-coded local filesystem paths and private service URLs
+- the private Nocturne client application
 
-The dream/latent/thought concepts remain because they are generic storage and
-synthesis designs. Their private prompts, taxonomies, emotional constants, and
-runtime coupling do not.
+## Kept for compatibility
+
+Some internal schema keys predate this extraction (for example legacy anchor or
+room labels). They are data-format compatibility names, not a bundled persona.
+New visible prompt text and identity labels come from `identity.py` and local
+environment variables.
+
+## Release rule
+
+Build public releases from this directory with fresh Git history. Do not merge
+or publish the private repository history: deleted files remain recoverable from
+Git history.
+
+Before publishing:
+
+1. run the test suite;
+2. run `python scripts/public_audit.py`;
+3. inspect `git status` and the staged diff;
+4. confirm no real `buckets/`, `.env`, databases, images, or exports are tracked.

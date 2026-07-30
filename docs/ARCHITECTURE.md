@@ -1,36 +1,15 @@
 # Architecture
 
-```text
-MCP tools
-  ├─ memory core ── BucketManager ── Markdown/YAML buckets
-  │                    ├─ optional EmbeddingEngine ── embeddings.db
-  │                    └─ optional DecayEngine ── archive/
-  └─ fermentation
-       ├─ ThoughtPool ── thoughts.db
-       ├─ LatentPool ── latent_notes.json
-       └─ DreamEngine ── latest_dream.json
-             reads: memory + approved latent + thought
-```
+`server.py` is the MCP/HTTP composition root. It wires together:
 
-## Invariants
+- `bucket_manager.py`: Markdown bucket persistence, merge, and retrieval
+- `dehydrator.py`: model-assisted compression and metadata extraction
+- `embedding_engine.py`: optional semantic vectors
+- `decay_engine.py`: optional forgetting/archive policy
+- `desire_engine.py`: optional drive/weather state
+- `dialogue_residue_engine.py` and `memory_residue_engine.py`: bounded analysis
+- `rhythm_store.py`: optional external rhythm events and push bridge
+- `catroom_store.py` and `room_store.py`: optional multi-agent notes
 
-1. Stored memories remain readable without this service.
-2. Every generated dream carries the exact source records used.
-3. Thought and latent pools do not depend on emotion drives or persona state.
-4. Latent transitions are explicit; drafts cannot enter dreams until approved.
-5. No model is required for baseline operation.
-6. Deletion, archival, pinning, and resolution are explicit MCP actions.
-7. The public server has no presentation layer, device hooks, or hidden heartbeat.
-
-## Retrieval
-
-`BucketManager.search` combines fuzzy topic relevance, optional embedding
-pre-filtering, emotion coordinates when supplied, time proximity, and declared
-importance. `trace` is deliberately simpler: it performs literal matching over
-content and metadata, includes archives, then sorts chronologically.
-
-## Fermentation versus memory
-
-Thoughts and latent notes are not silently promoted to durable memories. Dreams
-are derived artifacts, not evidence. Consumers should show the `mode` and source
-IDs if dream text is presented to a person or fed back to another model.
+The private presentation layer is not part of this repository. Consumers should
+build their own UI against MCP or the authenticated headless API.

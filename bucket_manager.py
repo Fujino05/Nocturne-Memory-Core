@@ -111,7 +111,10 @@ class BucketManager:
         pinned: bool = False,
         protected: bool = False,
         created_at: str = "",
-        record_kind: str = "memory",
+        chord: str = "",
+        signal: str = "",
+        signal_hints: dict = None,
+        drive_tags: dict = None,
     ) -> str:
         """
         Create a new memory bucket, return bucket ID.
@@ -146,11 +149,18 @@ class BucketManager:
             "arousal": max(0.0, min(1.0, arousal)),
             "importance": max(1, min(10, importance)),
             "type": bucket_type,
-            "kind": str(record_kind or "memory").strip(),
             "created": created_at if created_at else now_iso(),
             "last_active": now_iso(),
             "activation_count": 0,
         }
+        if chord:
+            metadata["chord"] = str(chord).strip()
+        if signal:
+            metadata["signal"] = str(signal).strip()
+        if signal_hints:
+            metadata["signal_hints"] = signal_hints
+        if drive_tags:
+            metadata["drive_tags"] = drive_tags
         if pinned:
             metadata["pinned"] = True
         if protected:
@@ -283,8 +293,6 @@ class BucketManager:
             post["name"] = sanitize_name(kwargs["name"])
         if "resolved" in kwargs:
             post["resolved"] = bool(kwargs["resolved"])
-        if "kind" in kwargs:
-            post["kind"] = str(kwargs["kind"] or "memory").strip()
         if "pinned" in kwargs:
             post["pinned"] = bool(kwargs["pinned"])
             if kwargs["pinned"]:
@@ -293,6 +301,14 @@ class BucketManager:
             post["digested"] = bool(kwargs["digested"])
         if "model_valence" in kwargs:
             post["model_valence"] = max(0.0, min(1.0, float(kwargs["model_valence"])))
+        if "signal" in kwargs:
+            post["signal"] = str(kwargs["signal"]).strip()
+        if "signal_hints" in kwargs:
+            post["signal_hints"] = kwargs["signal_hints"]
+        if "drive_tags" in kwargs:
+            post["drive_tags"] = kwargs["drive_tags"]
+        if "chord" in kwargs:
+            post["chord"] = str(kwargs["chord"]).strip()
         if "created" in kwargs:
             post["created"] = kwargs["created"]
         if "type" in kwargs:
