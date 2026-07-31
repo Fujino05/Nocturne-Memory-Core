@@ -327,55 +327,48 @@ _NOW_PLAYING_CACHE = {"ts": 0.0, "value": {}}
 
 
 def _spotify_client_credentials() -> tuple[str, str]:
+    """Spotify app credentials from process env only.
+
+    Public edition does not scrape editor config files for secrets.
+    """
     client_id = os.environ.get("SPOTIFY_CLIENT_ID", "").strip()
     client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "").strip()
     if client_id and client_secret:
         return client_id, client_secret
-
-    def _walk(value):
-        if isinstance(value, dict):
-            env = value.get("env") if isinstance(value.get("env"), dict) else value
-            cid = str(env.get("SPOTIFY_CLIENT_ID") or "").strip()
-            secret = str(env.get("SPOTIFY_CLIENT_SECRET") or "").strip()
-            if cid and secret:
-                return cid, secret
-            for child in value.values():
-                found = _walk(child)
-                if found:
-                    return found
-        elif isinstance(value, list):
-            for child in value:
-                found = _walk(child)
-                if found:
-                    return found
-        return None
-
-    for path in (os.path.expanduser("~/.claude.json"), os.path.expanduser("~/.claude/settings.local.json")):
-        try:
-            with open(path) as f:
-                found = _walk(_json_lib.load(f))
-            if found:
-                return found
-        except Exception:
-            continue
     return "", ""
 
 
 def _spotify_access_token(force_refresh: bool = False) -> str:
+    """Optional Spotify now-playing. Opt-in via env credentials + local token file.
+
+    Requires SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET and a token cache at
+    ~/.spotify-mcp/tokens.json (same layout as common Spotify MCP helpers).
+    Silent no-op when either side is missing.
+    """
     import urllib.parse
     import urllib.request
 
+    client_id, client_secret = _spotify_client_credentials()
+    if not (client_id and client_secret):
+        return ""
+
     token_path = os.path.expanduser("~/.spotify-mcp/tokens.json")
-    with open(token_path) as f:
-        token_data = _json_lib.load(f)
+    if not os.path.exists(token_path):
+        return ""
+    try:
+        with open(token_path) as f:
+            token_data = _json_lib.load(f)
+    except Exception:
+        return ""
+    if not isinstance(token_data, dict):
+        return ""
     token = str(token_data.get("accessToken") or "").strip()
     expires_at = float(token_data.get("expiresAt", 0) or 0) / 1000.0
     if token and expires_at > time.time() + 60 and not force_refresh:
         return token
 
-    client_id, client_secret = _spotify_client_credentials()
     refresh_token = str(token_data.get("refreshToken") or "").strip()
-    if not (client_id and client_secret and refresh_token):
+    if not refresh_token:
         return token
 
     data = urllib.parse.urlencode({

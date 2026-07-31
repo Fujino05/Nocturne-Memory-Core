@@ -1,10 +1,12 @@
 # ============================================================
-# Ombre Brain Python 依赖
-# 安装: pip install -r requirements.txt
+# Nocturne Memory Core — Python dependencies
+# Install: pip install -r requirements.txt
+# Requires Python 3.11+ (CI uses 3.12)
 # ============================================================
 
-# MCP 协议 SDK（Claude 通信核心）
-mcp>=1.0.0
+# MCP protocol SDK (FastMCP tool surface).
+# mcp 2.x removed/changed FastMCP import paths used by server.py — stay on 1.x.
+mcp>=1.15.0,<2
 
 # 模糊匹配（记忆桶搜索）
 rapidfuzz>=3.0.0

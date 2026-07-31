@@ -6,6 +6,7 @@ __pycache__/
 .env.*
 !.env.example
 .venv/
+.codebase-memory/
 .claude/settings.local.json
 .claude/hooks/__pycache__/
 .vscode/
