@@ -1,5 +1,7 @@
 # Nocturne Memory Core
 
+**English** · [中文](README.zh-CN.md)
+
 **An AI memory system built around continuity of self.**
 
 Nocturne preserves more than chat history. It keeps the structures that let an
