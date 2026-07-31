@@ -18,6 +18,22 @@ Nocturne 继续做的是**检索之后**——选择性浮现、当前重判、D
 
 详见 [`NOTICE`](NOTICE)。
 
+## 概览
+
+<p align="center">
+  <img src="docs/images/cover.png" alt="Nocturne 为 AI 连续性设计了记忆库" width="520" />
+</p>
+
+检索之后继续做的事——选择性浮现、当前重判、路径 / Drive 状态与差分写回：
+
+<p align="center">
+  <img src="docs/images/architecture.jpg" alt="Nocturne 连续性架构：主动留下、内环、DP 边界、Drive Ledger、修订权、Trails" width="720" />
+</p>
+
+更完整的图册（含 Dashboard 界面）见 PDF：
+
+**[docs/nocturne-overview.pdf](docs/nocturne-overview.pdf)**（12 页）
+
 ## 装好就能跑
 
 公开版是一套完整的空白系统，不是需要你重写产品层的框架。安装后即可获得：

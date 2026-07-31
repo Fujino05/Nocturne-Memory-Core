@@ -24,6 +24,23 @@ and natural archival / decay. Nocturne continues after retrieval — selective
 surface, re-judgment, drive / path state, and differential write-back.
 See [`NOTICE`](NOTICE).
 
+## Overview
+
+<p align="center">
+  <img src="docs/images/cover.png" alt="Nocturne — memory designed for AI continuity" width="520" />
+</p>
+
+What memory carries forward after retrieval — selective surface, re-judgment,
+path / drive state, and differential write-back:
+
+<p align="center">
+  <img src="docs/images/architecture.jpg" alt="Nocturne continuity architecture — agency, inner loop, DP boundary, Drive Ledger, revision, Trails" width="720" />
+</p>
+
+A longer visual deck (including Dashboard surfaces) is also available as PDF:
+
+**[docs/nocturne-overview.pdf](docs/nocturne-overview.pdf)** (12 pages)
+
 ## Ready to run
 
 This public edition is a complete blank system, not a framework that requires
