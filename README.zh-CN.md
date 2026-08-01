@@ -2,7 +2,7 @@
 
 [English](README.md) · **中文**
 
-**面向「自我连续性」的 AI 记忆系统。**
+**面向 AI Agent 的本地优先记忆与连续性层。**
 
 Nocturne 保存的不只是聊天记录。它保存那些让 AI 在换窗口、上下文压缩、换模型、换宿主之后，仍能接上未完成内在轨迹的结构：长期记忆、未决问题、检索路径、驱动痕迹、潜流碎片、念头池、梦，以及上一次相遇留下的差分。
 
@@ -10,13 +10,12 @@ Nocturne 保存的不只是聊天记录。它保存那些让 AI 在换窗口、�
 
 ## 来路
 
-本仓库是基于 [@P0luz](https://github.com/P0luz) 的
-[Ombre Brain](https://github.com/P0luz/Ombre-Brain) 记忆核血脉的**二次开发**。
+Nocturne Memory Core 沿着 [@P0luz](https://github.com/P0luz) 的开源项目
+[Ombre Brain](https://github.com/P0luz/Ombre-Brain) 所建立的记忆核血脉继续演化。
 
-共同地基包括：Markdown / YAML 存储、hold / breath 写入与检索、Dashboard，以及自然归档 / 衰减。
-Nocturne 继续做的是**检索之后**——选择性浮现、当前重判、Drive / 路径状态，以及差分写回。
+两者共享 Markdown / YAML 存储、hold / breath 写入与检索、面向 Dashboard 的操作方式，以及自然归档 / 衰减等地基。在此之上，Nocturne 把循环继续推进到**检索之后**：选择性浮现、当前重判、Drive / 路径状态、潜在认知与差分写回。
 
-详见 [`NOTICE`](NOTICE)。
+Ombre Brain 仍是独立项目；两套系统目前拥有不同的范围与功能集。署名与许可证细节见 [`NOTICE`](NOTICE)。
 
 ## 概览
 
@@ -36,21 +35,27 @@ Nocturne 继续做的是**检索之后**——选择性浮现、当前重判、D
 
 ## 装好就能跑
 
-公开版是一套完整的空白系统，不是需要你重写产品层的框架。安装后即可获得：
+本仓库提供的是一套完整、可运行的 Memory Core。所谓「空白」，只是没有预装任何人的身份、关系历史与记忆数据，并不表示连续性系统被抽掉了一部分。安装后即可获得：
 
-- 面向 AI 客户端的 MCP 服务
-- 内置管理面板 Dashboard（`/dashboard`）
-- 无需 Nocturne 也能直接阅读的 Markdown / YAML 记忆存储
+- 面向 AI 客户端的 MCP 服务，支持 stdio 与 Streamable HTTP
+- 内置可视化管理面板 Dashboard（`/dashboard`）
+- 保留原始来源、无需 Nocturne 也能阅读的 Markdown / YAML 记忆存储
 - MCP 工具：`hold`、`breath`、`trace`、`wander`、`wander_mark`、`drive`、
   `undercurrent`、`trail_delta`、`trail_family`
-- Drive Ledger 与 DP 衍生的驱动痕迹
-- Thought Pool、潜流碎片与有来源的 dream 生成
-- 可选的向量、压缩、导入，以及自然归档 / 衰减
-- stdio 与 Streamable HTTP 两种传输
+- 选择性 Breath 组合与连续性 traces
+- Marginalia / Shape Trace、修订标记与差分写回
+- Drive Ledger、DP 衍生事件与独立状态动力学
+- Thought Pool、可审核潜流碎片与有来源的 dream 生成
+- Trails / Constellations，以及显式的 Delta / Family 关系
+- 可选的向量、模型辅助分析、压缩、导入与自然归档 / 衰减
 
-Dashboard 中的 Reverie / Constellations / Echoes / Drift 等视图属于内置 UI。
-家用专属的 opening、身份文案、artwork、猫屋、设备钩子 / Rhythm、Atmosphere、Gravity
-**不在**本公开版范围内。
+Dashboard 中的 Breath、Reverie、Constellations、Echoes、Drift 与 Axis 等视图都属于内置 UI。
+
+### 完整核心，空白家庭
+
+名字、身份文案、artwork、关系历史、私人记忆、房间结构，以及设备 / 服务钩子属于每个安装者自己的部署。原本的 Nocturne 家庭还长出了 Catroom、Rhythm、Atmosphere、Gravity 等本地集成；它们是一户家庭围绕核心搭建的环境，**不是藏起来的「完整版」**，也不是 Memory Core 的运行依赖。
+
+上面列出的通用连续性引擎已经完整包含在仓库中。你可以基于通用 MCP、webhook、配置与存储接口长出自己的家庭层，也可以只使用核心本身。
 
 ## 环境要求
 
@@ -75,7 +80,7 @@ open http://localhost:8000/dashboard
 ```
 
 不配模型 Key 时，基础的 `hold` / `breath` / `trace` 仍可使用（打标会回落到默认值）。
-配置 `OMBRE_API_KEY` 后可启用完整脱水、向量与更丰富的分析。
+配置 `OMBRE_API_KEY` 后可启用模型辅助分析、压缩 / 脱水、向量与更丰富的生成能力。
 
 ### 以 stdio 接入 MCP
 
