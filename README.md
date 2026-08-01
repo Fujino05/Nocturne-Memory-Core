@@ -2,7 +2,7 @@
 
 **English** · [中文](README.zh-CN.md)
 
-**An AI memory system built around continuity of self.**
+**A local-first memory and continuity layer for AI agents.**
 
 Nocturne preserves more than chat history. It keeps the structures that let an
 AI resume an unfinished inner trajectory across sessions, context compaction,
@@ -15,14 +15,17 @@ one before it. It provides practical continuity: the next awakening can locate
 what mattered, what changed, what remained unfinished, and where thought was
 already moving.
 
-## Provenance
+## Lineage
 
-Secondary development of the memory-core lineage of
+Nocturne Memory Core evolved from the open-source memory-core lineage of
 [Ombre Brain](https://github.com/P0luz/Ombre-Brain) by @P0luz.
-Shared foundation: Markdown / YAML storage, hold / breath retrieval, Dashboard,
-and natural archival / decay. Nocturne continues after retrieval — selective
-surface, re-judgment, drive / path state, and differential write-back.
-See [`NOTICE`](NOTICE).
+It retains a shared foundation — Markdown / YAML storage, hold / breath
+retrieval, Dashboard-oriented operation, and natural archival / decay — then
+extends the loop beyond retrieval with selective surface, re-judgment,
+Drive / path state, latent cognition, and differential write-back.
+
+Ombre Brain remains its own project; the two systems now have different scopes
+and feature sets. See [`NOTICE`](NOTICE) for attribution and license details.
 
 ## Overview
 
@@ -43,23 +46,37 @@ A longer visual deck (including Dashboard surfaces) is also available as PDF:
 
 ## Ready to run
 
-This public edition is a complete blank system, not a framework that requires
-rewriting. After installation it provides:
+This repository ships a complete, runnable Memory Core. “Blank” means that it
+contains no preloaded person's identity, relationship history, or memory data —
+not that the continuity system is incomplete. After installation it provides:
 
-- an MCP server for AI clients
-- a bundled management Dashboard at `/dashboard`
-- Markdown / YAML memory storage readable without Nocturne
+- an MCP server for AI clients, over stdio or Streamable HTTP
+- a bundled visual management Dashboard at `/dashboard`
+- source-preserving Markdown / YAML memory readable without Nocturne
 - MCP tools: `hold`, `breath`, `trace`, `wander`, `wander_mark`, `drive`,
-  `undercurrent`, `trail_delta`, `trail_family`
-- Drive Ledger and DP-derived drive traces
-- Thought Pool, latent fragments, and sourced dream generation
-- optional embeddings, compression, import, and natural archival / decay
-- stdio and Streamable HTTP transports
+  `undercurrent`, `trail_delta`, and `trail_family`
+- selective Breath composition and continuity traces
+- Marginalia / Shape Trace, revision marks, and differential write-back
+- Drive Ledger, DP-derived drive events, and independent state dynamics
+- Thought Pool, reviewable latent fragments, and sourced dream generation
+- Trails / Constellations with explicit Delta and Family relationships
+- optional embeddings, model-assisted analysis, compression, import, and
+  natural archival / decay
 
-Dashboard views (Reverie / Constellations / Echoes / Drift and related panes)
-are part of the bundled UI. Household-specific opening, identity, artwork,
-Catroom, device hooks / Rhythm, Atmosphere, and Gravity are **not** part of
-this public edition.
+Dashboard views including Breath, Reverie, Constellations, Echoes, Drift, and
+Axis panes are part of the bundled UI.
+
+### Complete core, blank household
+
+Names, identity prose, artwork, relationship history, private memories, room
+layouts, and device / service hooks belong to each installation. The original
+Nocturne household also has local integrations named Catroom, Rhythm,
+Atmosphere, and Gravity; these are one household's surrounding environment,
+not a hidden “full edition” and not dependencies of Memory Core.
+
+The reusable continuity engine described above is included here. Build your own
+household layer on top of the generic MCP, webhook, configuration, and storage
+surfaces — or use the core without one.
 
 ## Requirements
 
@@ -84,8 +101,8 @@ open http://localhost:8000/dashboard
 ```
 
 Basic `hold` / `breath` / `trace` work without a model key (tagging falls back
-to defaults). Set `OMBRE_API_KEY` for full dehydration, embeddings, and richer
-analysis.
+to defaults). Set `OMBRE_API_KEY` to enable model-assisted analysis,
+compression / dehydration, embeddings, and richer generative features.
 
 ### MCP via stdio
 
